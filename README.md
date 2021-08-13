@@ -56,17 +56,17 @@ ticker := time.NewTicker(5 * time.Second)
 quit := make(chan struct{})
 go func() {
     for {
-    select {
-        case <- ticker.C:
-            fmt.Println("MapStatus:", master.GetMapStatus())
-            redStatus := master.GetReduceStatus()
-            fmt.Println("ReduceStatus:", redStatus)
-            if redStatus.Complete == redStatus.Total {
-                quit <- struct{}{}
-            }
-        case <- quit:
-            ticker.Stop()
-            return
+        select {
+            case <- ticker.C:
+                fmt.Println("MapStatus:", master.GetMapStatus())
+                redStatus := master.GetReduceStatus()
+                fmt.Println("ReduceStatus:", redStatus)
+                if redStatus.Complete == redStatus.Total {
+                    quit <- struct{}{}
+                }
+            case <- quit:
+                ticker.Stop()
+                return
         }
     }
 }()
@@ -80,11 +80,11 @@ Snippets of sample runs locally
 
 1. Small input file 1KB
 
-![video](https://drive.google.com/file/d/1OBcOq9DnlTk2AcQHPHhmVuhaEengrDXR/view?usp=sharing)
+https://user-images.githubusercontent.com/23053768/129325774-5017407f-edbf-4227-a362-26d0d3e4a241.mov
 
 2. Large file 581 KB
 
-![video](https://drive.google.com/file/d/178FEWdB_GtewYqkIjS4hbALA4iUAz7Rw/view?usp=sharing)
+https://user-images.githubusercontent.com/23053768/129325623-03e7be66-99ef-4534-9e8d-f7f9cd9d5b0e.mov
 
 
 ## References
