@@ -101,11 +101,11 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) {
 	log.Println("Processing block", blockCidString)
 	nodeCoreApi, err := coreapi.NewCoreAPI(master.Node)
 	if err != nil {
-        log.Fatalf("Cannot get the core API", err)
+        log.Fatalln("Cannot get the core API", err)
     }
 	ch, err := nodeCoreApi.Dht().FindProviders(ctx, icorepath.New(blockCidString))
 	if (err != nil) {
-		log.Fatalf("Unable to get providers", err)
+		log.Fatalln("Unable to get providers", err)
 	}
 	// ch := master.Node.DHT.FindProvidersAsync(ctx, blockCid, common.NoOfProviders)
 	set := make(map[string]struct{})
