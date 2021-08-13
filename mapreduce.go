@@ -3,9 +3,7 @@ package mapreduce
 import (
 	core "github.com/ipfs/go-ipfs/core"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	gorpc "github.com/libp2p/go-libp2p-gorpc"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	
+	gorpc "github.com/libp2p/go-libp2p-gorpc"	
 
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/core/mapper"
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/core/master"
@@ -28,9 +26,9 @@ func InitMaster(node *core.IpfsNode, mapFuncFilePath string, reduceFuncFilePath 
 	noOfReducers int, dataFileCid string) (*master.Master, error) {
 	master := master.Master{
 		Node: node, MapFuncFilePath: mapFuncFilePath, ReduceFuncFilePath: reduceFuncFilePath, 
-		DataFileCid: dataFileCid, BlockProviders: make(map[string][]peer.AddrInfo), 
-		MapAllocation: make(map[string]peer.AddrInfo),
-		ReduceAllocation: make(map[int]peer.AddrInfo),
+		DataFileCid: dataFileCid, BlockProviders: make(map[string][]string), 
+		MapAllocation: make(map[string]string),
+		ReduceAllocation: make(map[int]string),
 		MapOutput: make(map[string][]string),
 		ReduceFileMap: make(map[int][]string),
 		ReduceOutput: make(map[int]string),

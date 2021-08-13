@@ -10,9 +10,7 @@ import (
 	"fmt"
 
 	core "github.com/ipfs/go-ipfs/core"
-	peerstore "github.com/libp2p/go-libp2p-core/peer"
 	gorpc "github.com/libp2p/go-libp2p-gorpc"
-	multiaddr "github.com/multiformats/go-multiaddr"
 
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
 )
@@ -35,21 +33,16 @@ func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, empty *
 		ctx := context.Background()
 		kvList, _ := ms.doMap(ctx, mapf, mapInput.DataFileCid)
 		log.Println("Map output ready")
-		log.Println(mapInput)
 		kvFileCids, err := ms.shuffleAndSave(ctx, kvList, mapInput.NoOfReducers, mapInput.DataFileCid)
 		if err != nil {
 			log.Fatalln("Unable to shuffle and save", err)
 		}
  		log.Println("Map output Cids ready")
-		addr, err := multiaddr.NewMultiaddr("/p2p/" + mapInput.MasterPeerId)
+		peer, err := common.GetPeerFromId(mapInput.MasterPeerId)
 		if err != nil {
-			log.Fatalln("Unable to get multiaddr for master", err) 
-		}
-		peer, err := peerstore.AddrInfoFromP2pAddr(addr)
-		if err != nil {
-			log.Fatalln("Unable to obtain master peer", err) 
-		}
-		if err := ms.Node.PeerHost.Connect(ctx, *peer); err != nil {
+			log.Fatalln("Unable to get master peer")
+		} 
+		if err := ms.Node.PeerHost.Connect(ctx, peer); err != nil {
 			log.Fatalln("Unable to connect to master", err)
 		}
 		log.Println("Connected to master")

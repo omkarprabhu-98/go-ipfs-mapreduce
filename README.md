@@ -6,7 +6,7 @@ A simple POC Map Reduce Library for [IPFS](http://ipfs.io) in Golang
 
 This acts as a standalone library. So only [IPFS](https://github.com/ipfs/go-ipfs) nodes using this library to register services will be able to communicate to each other to perform MapReduce.
 
-In the future the plan it to have this part of the daemon so all IPFS nodes have this protocol and we can do p2p map reduce at a much larger scale.
+In the future the plan it to have this part of the daemon so all IPFS nodes have this protocol and we can do p2p map reduce at a much larger scale. Because IPFS slits a file added to it into 256 KB blocks, we can independently process them. 
 
 Every Peer (a IPFS node) registers the map & reduce [gorpc](https://github.com/libp2p/go-libp2p-gorpc) services using the library. This sets the required stream handlers for the [libp2p](https://github.com/libp2p/go-libp2p) protocol "/ipfs/mapreduce".
 
@@ -23,12 +23,53 @@ Calling a run method on the master starts the map reduce process.
 
 All Peers 
 ```go
+import (
+    ...
+    mapreduce "github.com/omkarprabhu-98/go-ipfs-mapreduce"
+    ...
+)
 
+fmt.Println("Spawning ephemeral ipfs node")
+node, err := spawnEphemeral(ctx)
+if err != nil {
+    panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
+}
+err = mapreduce.RegisterProtocol(node)
+if err != nil {
+    panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
+}
 ```
 
 Run Map Reduce
 ```go
+master, err := mapreduce.InitMaster(node, mapFuncFilePath, reduceFuncFilePath, 
+noOfReducers, dataFileCid);
+if err != nil {
+    panic(fmt.Errorf("failed to init master: %s", err))
+}
+master.RunMapReduce(ctx)
+```
 
+Observe status
+```go
+ticker := time.NewTicker(5 * time.Second)
+quit := make(chan struct{})
+go func() {
+    for {
+    select {
+        case <- ticker.C:
+            fmt.Println("MapStatus:", master.GetMapStatus())
+            redStatus := master.GetReduceStatus()
+            fmt.Println("ReduceStatus:", redStatus)
+            if redStatus.Complete == redStatus.Total {
+                quit <- struct{}{}
+            }
+        case <- quit:
+            ticker.Stop()
+            return
+        }
+    }
+}()
 ```
 
 Check `examples` directory for examples 
@@ -37,9 +78,13 @@ Check `examples` directory for examples
 
 Snippets of sample runs locally
 
-1. Small input file
+1. Small input file 1KB
 
-2. Large file
+![video](https://drive.google.com/file/d/1OBcOq9DnlTk2AcQHPHhmVuhaEengrDXR/view?usp=sharing)
+
+2. Large file 581 KB
+
+![video](https://drive.google.com/file/d/178FEWdB_GtewYqkIjS4hbALA4iUAz7Rw/view?usp=sharing)
 
 
 ## References

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"math/rand"
 
 	// "github.com/ipfs/go-ipfs-files"
 	core "github.com/ipfs/go-ipfs/core"
@@ -15,7 +16,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipfs/core/coreapi"
 	icorepath "github.com/ipfs/interface-go-ipfs-core/path"
-	peerstore "github.com/libp2p/go-libp2p-core/peer"
 	gorpc "github.com/libp2p/go-libp2p-gorpc"
 
 	// multiaddr "github.com/multiformats/go-multiaddr"
@@ -36,12 +36,13 @@ type Master struct {
 	DataFileBlocks     []string
 	mu                 sync.Mutex // protects all below
 	MapStatus	       Status
-	BlockProviders     map[string][]peerstore.AddrInfo
-	MapAllocation      map[string]peerstore.AddrInfo // datafileblock to peerid
+	BlockProviders     map[string][]string // datafileblock to peerid providers
+	MapAllocation      map[string]string // datafileblock to peerid allocated for map
+	RMapAllocation     map[string]string // reverse of map allocation
 	MapOutput          map[string][]string // datafileblock to list of NoOfReducers cids for map output files
 	ReduceStatus       Status
 	ReduceOutput       map[int]string 
-	ReduceAllocation   map[int]peerstore.AddrInfo // number to peerid
+	ReduceAllocation   map[int]string // number to peerid
 	ReduceFileMap      map[int][]string // number to list of cids as per map output
 }
 
@@ -88,6 +89,7 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 	master.ReduceStatus.Complete = 0
 
  	for _, link := range dataBlocks {
+		log.Println("Sub block:", link)
 		master.DataFileBlocks = append(master.DataFileBlocks, link.Cid.String())
 		// TODO check if this is feasible
 		go master.processBlock(ctx, link.Cid)
@@ -95,30 +97,53 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 }
 
 func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) {
-	ch := master.Node.DHTClient.FindProvidersAsync(ctx, blockCid, common.NoOfProviders)
 	blockCidString := blockCid.String()
 	log.Println("Processing block", blockCidString)
+	nodeCoreApi, err := coreapi.NewCoreAPI(master.Node)
+	if err != nil {
+        log.Fatalf("Cannot get the core API", err)
+    }
+	ch, err := nodeCoreApi.Dht().FindProviders(ctx, icorepath.New(blockCidString))
+	if (err != nil) {
+		log.Fatalf("Unable to get providers", err)
+	}
+	// ch := master.Node.DHT.FindProvidersAsync(ctx, blockCid, common.NoOfProviders)
+	set := make(map[string]struct{})
+	var provs []string
 	for peer := range ch {
-		master.BlockProviders[blockCidString] = append(master.BlockProviders[blockCidString], peer)
+		if _, ok := set[peer.ID.String()]; !ok {
+			provs = append(provs, peer.ID.String())
+		}
+	}
+	// TODO find some better strategy
+	master.BlockProviders[blockCidString] = make([]string, len(provs))
+	perm := rand.Perm(len(provs))
+	for i, v := range perm {
+		master.BlockProviders[blockCidString][v] = provs[i]
 	}
 	log.Println("Found", len(master.BlockProviders[blockCidString]), "providers for", blockCidString)
-	for _, peer := range master.BlockProviders[blockCidString] {
+	for _, peerId := range master.BlockProviders[blockCidString] {
+		
+		peer, err := common.GetPeerFromId(peerId)
+		if err != nil {
+			log.Println("Unable to create peer f", err)
+			continue
+		}
 		if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
 			log.Println("Unable to connect to peer for map", err)
 			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}
-		err := master.RpcClient.Call(peer.ID, common.MapServiceName, common.MapFuncName,
+		if err = master.RpcClient.Call(peer.ID, common.MapServiceName, common.MapFuncName,
 			common.MapInput{FuncFileCid: master.MapFuncFileCid, NoOfReducers: master.NoOfReducers, 
 				DataFileCid: blockCidString, MasterPeerId: master.Node.Identity.String(),}, 
-			&common.Empty{})
-		if (err != nil) {
+			&common.Empty{}); err != nil {
 			log.Println("Unable to call peer for map", err)
 			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}
 		log.Println("Allocated", blockCidString, "to peer: ", peer)
-		master.MapAllocation[blockCidString] = peer
+		master.MapAllocation[blockCidString] = peerId
 		break
 	}
 	if _, ok := master.MapAllocation[blockCidString]; !ok {
@@ -152,25 +177,29 @@ func (master *Master) startReduce() {
 	master.mu.Lock()
 	defer master.mu.Unlock()
 	for i := 0; i < master.NoOfReducers; i++ {
-		for  _, peerList := range master.BlockProviders {
+		for  _, peerIdList := range master.BlockProviders {
 			if _, ok := master.ReduceAllocation[i]; ok {
 				break;
 			}
-			for _, peer := range peerList {
+			for _, peerId := range peerIdList {
+				peer, err := common.GetPeerFromId(peerId)
+				if err != nil {
+					log.Println("Unable to create peer f", err)
+					continue
+				}
 				if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
 					log.Println("Unable to connect to peer for reduce", err)
 					continue
 				}
-				err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
+				if err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
 					common.ReduceInput{FuncFileCid: master.ReduceFuncFileCid, KvFileCids: master.ReduceFileMap[i],
 						ReducerNo: i, MasterPeerId: master.Node.Identity.String(),}, 
-					&common.Empty{})
-				if (err != nil) {
+					&common.Empty{}); err != nil {
 					log.Println("Unable to call peer for reduce", err)
 					continue
 				}
 				log.Println("Peer", peer.ID, "mapped to reducer no", i)
-				master.ReduceAllocation[i] = peer
+				master.ReduceAllocation[i] = peerId
 				break;
 			}
 		}

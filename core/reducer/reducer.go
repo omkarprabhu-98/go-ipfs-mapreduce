@@ -9,9 +9,7 @@ import (
 	"sort"
 
 	core "github.com/ipfs/go-ipfs/core"
-	peerstore "github.com/libp2p/go-libp2p-core/peer"
 	gorpc "github.com/libp2p/go-libp2p-gorpc"
-	multiaddr "github.com/multiformats/go-multiaddr"
 
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
 )
@@ -34,16 +32,9 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 		ctx := context.Background()
 		outputFileCid, _ := rs.doReduce(ctx, reducef, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
 		log.Println("Reduce output ready")
-		addr, err := multiaddr.NewMultiaddr("/p2p/" + reduceInput.MasterPeerId)
+		peer, err := common.GetPeerFromId(reduceInput.MasterPeerId)
 		if err != nil {
-			log.Fatalln("Unable to get multiaddr for master", err) 
-		}
-		peer, err := peerstore.AddrInfoFromP2pAddr(addr)
-		if err != nil {
-			log.Fatalln("Unable to obtain master peer", err) 
-		}
-		if err := rs.Node.PeerHost.Connect(ctx, *peer); err != nil {
-			log.Fatalln("Unable to connect to master", err)
+			log.Fatalln("Unable to get master peer")
 		}
 		rpcClient := gorpc.NewClient(rs.Node.PeerHost, common.ProtocolID)
 		if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterReduceOutputFuncName,
