@@ -21,17 +21,17 @@ import (
 
 func AddFile(ctx context.Context, node *core.IpfsNode, filePath string) (cid.Cid, error) {
 	file, err := os.Open(filePath)
-    if err != nil {
+	if err != nil {
 		log.Println("Unable to open file", filePath, err)
-        return cid.Cid{}, err
-    }
-    adder, err := coreunix.NewAdder(ctx, node.Pinning, node.Blockstore, node.DAG)
-    if err != nil {
+		return cid.Cid{}, err
+	}
+	adder, err := coreunix.NewAdder(ctx, node.Pinning, node.Blockstore, node.DAG)
+	if err != nil {
 		log.Println("Unable to get ipfs adder", err)
-        return cid.Cid{}, err
-    }
-    fileReader := files.NewReaderFile(file)
-    rootNode, err := adder.AddAllAndPin(fileReader)
+		return cid.Cid{}, err
+	}
+	fileReader := files.NewReaderFile(file)
+	rootNode, err := adder.AddAllAndPin(fileReader)
 	if err != nil {
 		log.Println("Unable to get Add and pin", err)
         return cid.Cid{}, err
@@ -49,7 +49,7 @@ func AddFile(ctx context.Context, node *core.IpfsNode, filePath string) (cid.Cid
 	// 		return cid.Cid{}, err
 	// 	}
 	// }
-    return rootNode.Cid(), nil
+	return rootNode.Cid(), nil
 }
 
 func GetPlugin(ctx context.Context, node *core.IpfsNode, fileCid string) (*plugin.Plugin, error) {
@@ -94,11 +94,11 @@ func GetInTmpFile(ctx context.Context, node *core.IpfsNode, fileCid string) (*os
 
 func WriteToTmp(ctx context.Context, rootNode files.Node) (*os.File, error) {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "pre-")
-    if err != nil {
-        log.Println("Cannot create temporary file", err)
+	if err != nil {
+		log.Println("Cannot create temporary file", err)
 		return nil, err
-    }
-    log.Println("Created a Temp File: " + tmpFile.Name())
+	}
+	log.Println("Created a Temp File: " + tmpFile.Name())
 	err = files.WriteTo(rootNode, tmpFile.Name())
 	if err != nil {
 		log.Println("Could not write out the fetched file from IPFS", err)
@@ -112,9 +112,9 @@ func GetFile(ctx context.Context, node *core.IpfsNode, fileCid string) (files.No
 	path := icorepath.New(fileCid)
 	nodeCoreApi, err := coreapi.NewCoreAPI(node)
 	if err != nil {
-        log.Println("Cannot get the core API", err)
+		log.Println("Cannot get the core API", err)
 		return nil, err
-    }
+	}
 	rootNode, err := nodeCoreApi.Unixfs().Get(ctx, path)
 	if err != nil {
 		log.Println("Could not get file", err)

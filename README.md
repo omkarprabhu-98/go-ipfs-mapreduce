@@ -92,9 +92,14 @@ Inspiration and code references are taken from MIT's 6.824 course
 - http://nil.csail.mit.edu/6.824/2020/schedule.html
 - https://github.com/WenbinZhu/mit-6.824-labs
 
-## TODOs
-
+## TODOs for the project
+- [x] Handle errors and timeouts in the current code
+- [ ] Write TF-IDF mapreduce for Hadoop testing (may have to be in Java) and get stats
+- [ ] Write TF-IDF in Go for our use case
+- [ ] Script to spawn up the cluster and distribute the data in CloudLab nodes. Also test the TF-IDF for our framework.
+- [ ] TODO in master.go for choosing which peer to get the block from
+- [ ] TODO in master.go to avoid locking the whole computation
+- [x] Better way to handle TODO in master.go line 94
+- [ ] (can avoid for now) Weird error in utils.go TODO, tmp fix in place, find a better fix. 
 - [ ] testing
-- [ ] complete code TODOs
-- [ ] handle timeouts and add retries
 - [ ] integrate into go-ifs
