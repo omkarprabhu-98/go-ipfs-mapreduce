@@ -16,6 +16,7 @@ To run mapreduce, we use the library to get the master struct, registering the m
 - reduceFuncFilePath: reduce golang code built to a ".so" file in plugin mode
 - noOfReducers: no of reducers
 - dataFileCid: cid string for the data file to process using map reduce.
+- mrOutputFile: file name where final output should be stored
 
 Calling a run method on the master starts the map reduce process.
 

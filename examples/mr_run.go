@@ -46,10 +46,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
 	}
-	if len(os.Args) == 5 {
+	if len(os.Args) == 6 {
 		n, _ := strconv.Atoi(os.Args[3])
 		fmt.Println(n)
-		master, err := mapreduce.InitMaster(node, os.Args[1], os.Args[2], n, os.Args[4]);
+		master, err := mapreduce.InitMaster(node, os.Args[1], os.Args[2], n, os.Args[4], os.Args[5]);
 		if err != nil {
 			panic(fmt.Errorf("failed to init master: %s", err))
 		}

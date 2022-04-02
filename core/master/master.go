@@ -8,6 +8,7 @@ import (
 	"sync"
 	"math/rand"
 	"errors"
+	"fmt"
 
 	// "github.com/ipfs/go-ipfs-files"
 	core "github.com/ipfs/go-ipfs/core"
@@ -32,6 +33,7 @@ type Master struct {
 	MapFuncFileCid     string
 	ReduceFuncFileCid  string
 	NoOfReducers       int
+	MrOutputFile       string
 	DataFileCid        string
 	DataFileBlocks     []string
 	mu                 sync.Mutex // protects all below
@@ -274,7 +276,10 @@ func (master *Master) combineOutput() {
 
 	master.mu.Lock()
 	defer master.mu.Unlock()
-	// print for now
+
+	f, _ := os.OpenFile(master.MrOutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	defer f.Close()
+
 	for _, fileCid := range master.ReduceOutput {
 		file, err := common.GetInTmpFile(ctx, master.Node, fileCid)
 		if err != nil {
@@ -282,7 +287,7 @@ func (master *Master) combineOutput() {
 		}
 		defer os.Remove(file.Name())
 		content, _ := ioutil.ReadAll(file)
-		log.Println(string(content))
+		f.WriteString(fmt.Sprintf("%s\n", content))
 	}
 	log.Println("Map Reduce complete for", master.DataFileCid)
 }
