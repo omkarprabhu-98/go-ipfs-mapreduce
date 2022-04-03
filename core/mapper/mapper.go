@@ -38,18 +38,19 @@ func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutp
 	if err != nil {
 		log.Fatalln("Unable to shuffle and save", err)
 	}
-	log.Println("Map output Cids ready")
-	peer, err := common.GetPeerFromId(mapInput.MasterPeerId)
-	if err != nil {
-		log.Fatalln("Unable to get master peer")
-		return err
-	}
-	if err := ms.Node.PeerHost.Connect(ctx, peer); err != nil {
-		log.Fatalln("Unable to connect to master", err)
-		return err
-	}
-	log.Println("Connected to master")
-	// PREV--> rpcClient := gorpc.NewClient(ms.Node.PeerHost, common.ProtocolID)
+	// PREV-->
+	// log.Println("Map output Cids ready")
+	// peer, err := common.GetPeerFromId(mapInput.MasterPeerId)
+	// if err != nil {
+	// 	log.Fatalln("Unable to get master peer")
+	// 	return err
+	// }
+	// if err := ms.Node.PeerHost.Connect(ctx, peer); err != nil {
+	// 	log.Fatalln("Unable to connect to master", err)
+	// 	return err
+	// }
+	// log.Println("Connected to master")
+	// rpcClient := gorpc.NewClient(ms.Node.PeerHost, common.ProtocolID)
 	// if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterMapOutputFuncName,
 	// 	common.MapOutput{DataFileCid: mapInput.DataFileCid, KvFileCids: kvFileCids,},
 	// 	&common.Empty{}); err != nil {
