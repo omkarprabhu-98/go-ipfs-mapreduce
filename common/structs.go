@@ -6,15 +6,14 @@ type Empty struct {
 }
 
 type MapInput struct {
-	FuncFileCid  string
 	NoOfReducers int
-	DataFileCid  string 
+	DataFileCid  string
 	MasterPeerId string
 }
 
 type MapOutput struct {
-	DataFileCid  string
-	KvFileCids   []string
+	DataFileCid string
+	KvFileCids  []string
 }
 
 type KeyValue struct {
@@ -23,7 +22,6 @@ type KeyValue struct {
 }
 
 type ReduceInput struct {
-	FuncFileCid  string
 	KvFileCids   []string
 	MasterPeerId string
 	ReducerNo    int

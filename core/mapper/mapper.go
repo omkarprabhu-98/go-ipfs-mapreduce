@@ -1,13 +1,15 @@
 package mapper
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"bufio"
-	"encoding/json"
-	"fmt"
+	"strings"
+	"unicode"
 
 	core "github.com/ipfs/go-ipfs/core"
 	// gorpc "github.com/libp2p/go-libp2p-gorpc"
@@ -16,23 +18,18 @@ import (
 )
 
 type MapService struct {
-	Node *core.IpfsNode 
+	Node *core.IpfsNode
 }
 
 // PREV--> func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, empty *common.Empty) error {
 func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutput *common.MapOutput) error {
 	log.Println("In Map")
-	mapf, err := ms.loadMapFunc(ctx, mapInput.FuncFileCid)
-	if err != nil {
-		return err
-	}
-	log.Println("Extracted map func from file")
 	// PREV--> go func () {
 	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data 
+	// if master does not get a response after a duration it assumes the node/data
 	// is lost and retries
 	// PREV--> ctx := context.Background()
-	kvList, _ := ms.doMap(ctx, mapf, mapInput.DataFileCid)
+	kvList, _ := ms.doMap(ctx, mapInput.DataFileCid)
 	log.Println("Map output ready")
 	kvFileCids, err := ms.shuffleAndSave(ctx, kvList, mapInput.NoOfReducers, mapInput.DataFileCid)
 	if err != nil {
@@ -63,34 +60,14 @@ func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutp
 	return nil
 }
 
-func  (ms *MapService) loadMapFunc(ctx context.Context, fileCid string) (func(string, string) []common.KeyValue, error) {
-	log.Println("Getting Map func from plugin file")
-	p, err := common.GetPlugin(ctx, ms.Node, fileCid)
-	if (err != nil) {
-		return nil, err
-	}
-	log.Println("Plugin obtained")
-	xmapf, err := p.Lookup(common.MapFuncName)
-	if err != nil {
-		log.Println("Cannot find Map in the file", err)
-		return nil, err
-	}
-	mapf, ok := xmapf.(func(string, string) []common.KeyValue)
-	if !ok {
-		log.Println("Cannot find Map func with correct arguments", err)
-		return nil, err
-	}
-	return mapf, nil
-}
-
-func (ms *MapService) doMap(ctx context.Context, mapf (func(string, string) []common.KeyValue), dataFileCid string) ([]common.KeyValue, error) {
+func (ms *MapService) doMap(ctx context.Context, dataFileCid string) ([]common.KeyValue, error) {
 	dataFile, err := common.GetInTmpFile(ctx, ms.Node, dataFileCid)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 	defer os.Remove(dataFile.Name())
 	content, err := ioutil.ReadAll(dataFile)
-	if (err != nil) {
+	if err != nil {
 		log.Println("Unable to read data", err)
 		return nil, err
 	}
@@ -113,7 +90,7 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 		if err != nil {
 			log.Println("Cannot create file", filePath, err)
 			return nil, err
-		} 
+		}
 		buf := bufio.NewWriter(file)
 		files = append(files, file)
 		buffers = append(buffers, buf)
@@ -124,19 +101,19 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 	for _, kv := range kvList {
 		idx := common.Ihash(kv.Key) % noOfReducers
 		err := encoders[idx].Encode(&kv)
-		if (err != nil) {
+		if err != nil {
 			log.Println("Cannot encode kv ", err)
 			return nil, err
-		} 
+		}
 	}
 	log.Println("Output written to all file buffers")
 	// flush file buffer to disk
 	for _, buf := range buffers {
 		err := buf.Flush()
-		if (err != nil) {
+		if err != nil {
 			log.Println("Cannot flush buffer for file", err)
 			return nil, err
-		} 
+		}
 	}
 	log.Println("Flush to all files successful")
 	for _, file := range files {
@@ -151,3 +128,17 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 	return kvFileCids, nil
 }
 
+func mapf(filename string, contents string) []common.KeyValue {
+	// function to detect word separators.
+	ff := func(r rune) bool { return !unicode.IsLetter(r) }
+
+	// split contents into an array of words.
+	words := strings.FieldsFunc(contents, ff)
+
+	kva := []common.KeyValue{}
+	for _, w := range words {
+		kv := common.KeyValue{w, "1"}
+		kva = append(kva, kv)
+	}
+	return kva
+}

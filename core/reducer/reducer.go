@@ -2,11 +2,12 @@ package reducer
 
 import (
 	"context"
-	"log"
-	"os"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"sort"
+	"strconv"
 
 	core "github.com/ipfs/go-ipfs/core"
 	// gorpc "github.com/libp2p/go-libp2p-gorpc"
@@ -21,18 +22,13 @@ type ReduceService struct {
 // PREV--> func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, empty *common.Empty) error {
 func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, reduceOutput *common.ReduceOutput) error {
 	log.Println("In Reduce")
-	reducef, err := rs.loadReduceFunc(ctx, reduceInput.FuncFileCid)
-	if err != nil {
-		return err
-	}
-	log.Println("Extracted reduce func from file")
-	// PREV --> 
+	// PREV -->
 	// go func () {
 	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data 
+	// if master does not get a response after a duration it assumes the node/data
 	// is lost and retries
 	// ctx := context.Background()
-	outputFileCid, _ := rs.doReduce(ctx, reducef, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
+	outputFileCid, _ := rs.doReduce(ctx, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
 	log.Println("Reduce output ready")
 	// PREV-->
 	// peer, err := common.GetPeerFromId(reduceInput.MasterPeerId)
@@ -52,10 +48,10 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 	return nil
 }
 
-func  (rs *ReduceService) loadReduceFunc(ctx context.Context, fileCid string) (func(string, []string) string, error) {
+func (rs *ReduceService) loadReduceFunc(ctx context.Context, fileCid string) (func(string, []string) string, error) {
 	log.Println("Getting Reduce func from plugin file")
 	p, err := common.GetPlugin(ctx, rs.Node, fileCid)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 	log.Println("Plugin obtained")
@@ -72,22 +68,22 @@ func  (rs *ReduceService) loadReduceFunc(ctx context.Context, fileCid string) (f
 	return reducef, nil
 }
 
-func (rs *ReduceService) doReduce(ctx context.Context, 
-	reducef (func(string, []string) string), kvFileCids []string, 
+func (rs *ReduceService) doReduce(ctx context.Context,
+	kvFileCids []string,
 	masterPeerId string, reducerNo int) (string, error) {
 	kvMap := make(map[string][]string)
 	var kv common.KeyValue
 	// fill the map from all files
 	for _, kvFileCid := range kvFileCids {
 		kvFile, err := common.GetInTmpFile(ctx, rs.Node, kvFileCid)
-		if (err != nil) {
+		if err != nil {
 			return "", err
 		}
 		os.Remove(kvFile.Name())
 		dec := json.NewDecoder(kvFile)
 		for dec.More() {
 			err = dec.Decode(&kv)
-			if (err != nil) {
+			if err != nil {
 				log.Println("Cannot decode from KV file", err)
 				return "", err
 			}
@@ -127,4 +123,9 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 		return "", err
 	}
 	return outfileCid.String(), err
+}
+
+func reducef(key string, values []string) string {
+	// return the number of occurrences of this word.
+	return strconv.Itoa(len(values))
 }

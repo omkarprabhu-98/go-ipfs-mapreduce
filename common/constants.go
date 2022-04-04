@@ -1,21 +1,21 @@
 package common
 
 const (
-	ProtocolID = "/ipfs/mapreduce"
-	MaxRetries = 3
+	ProtocolID    = "/ipfs/mapreduce"
+	MaxRetries    = 3
 	MaxGoRoutines = 250
 
 	// Master
-	NoOfProviders = 5
-	MasterMapOutputFuncName = "ProcessMapOutput"
+	NoOfProviders              = 5
+	MasterMapOutputFuncName    = "ProcessMapOutput"
 	MasterReduceOutputFuncName = "ProcessReduceOutput"
-	MasterServiceName = "Master"
+	MasterServiceName          = "Master"
 
 	// Mapper
-	MapFuncName = "Map"
+	MapFuncName    = "Map"
 	MapServiceName = "MapService"
 
 	// Reducer
-	ReduceFuncName = "Reduce"
+	ReduceFuncName    = "Reduce"
 	ReduceServiceName = "ReduceService"
 )

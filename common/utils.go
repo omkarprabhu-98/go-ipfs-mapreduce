@@ -34,13 +34,13 @@ func AddFile(ctx context.Context, node *core.IpfsNode, filePath string) (cid.Cid
 	rootNode, err := adder.AddAllAndPin(fileReader)
 	if err != nil {
 		log.Println("Unable to get Add and pin", err)
-        return cid.Cid{}, err
-    }
+		return cid.Cid{}, err
+	}
 	// nodeCoreApi, err := coreapi.NewCoreAPI(node)
 	// if err != nil {
-    //     log.Println("Cannot get the core API", err)
+	//     log.Println("Cannot get the core API", err)
 	// 	return cid.Cid{}, err
-    // }
+	// }
 	// rootNode, _ := nodeCoreApi.Unixfs().Add(ctx, fileReader)
 	// for _, link := range rootNode.Links() {
 	// 	log.Println(link)
@@ -55,12 +55,12 @@ func AddFile(ctx context.Context, node *core.IpfsNode, filePath string) (cid.Cid
 func GetPlugin(ctx context.Context, node *core.IpfsNode, fileCid string) (*plugin.Plugin, error) {
 	// TODO find some better way to do this
 	rootNode, err := GetFile(ctx, node, fileCid)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 	// reopening plugin gives error find a way to avoid this
 	// using the same file avoid the problem above
-	file, err := os.OpenFile("plugin-" + fileCid + ".so", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("plugin-"+fileCid+".so", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println("Unable to create file", err)
 		return nil, err
@@ -82,11 +82,11 @@ func GetPlugin(ctx context.Context, node *core.IpfsNode, fileCid string) (*plugi
 
 func GetInTmpFile(ctx context.Context, node *core.IpfsNode, fileCid string) (*os.File, error) {
 	rootNode, err := GetFile(ctx, node, fileCid)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 	tmpFile, err := WriteToTmp(ctx, rootNode)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 	return tmpFile, nil
@@ -132,12 +132,12 @@ func Ihash(key string) int {
 func GetPeerFromId(peerId string) (peerstore.AddrInfo, error) {
 	addr, err := multiaddr.NewMultiaddr("/p2p/" + peerId)
 	if err != nil {
-		log.Println("Unable to get multiaddr", err) 
+		log.Println("Unable to get multiaddr", err)
 		return peerstore.AddrInfo{}, err
 	}
 	peer, err := peerstore.AddrInfoFromP2pAddr(addr)
 	if err != nil {
-		log.Println("Unable to obtain peer", err) 
+		log.Println("Unable to obtain peer", err)
 		return peerstore.AddrInfo{}, err
 	}
 	return *peer, nil

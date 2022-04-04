@@ -2,13 +2,13 @@ package master
 
 import (
 	"context"
-	"io/ioutil"
-	"log"
-	"os"
-	"sync"
-	"math/rand"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"os"
+	"sync"
 
 	// "github.com/ipfs/go-ipfs-files"
 	core "github.com/ipfs/go-ipfs/core"
@@ -24,28 +24,23 @@ import (
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
 )
 
-
 type Master struct {
-	Node               *core.IpfsNode
-	RpcClient          *gorpc.Client
-	MapFuncFilePath    string
-	ReduceFuncFilePath string
-	MapFuncFileCid     string
-	ReduceFuncFileCid  string
-	NoOfReducers       int
-	MrOutputFile       string
-	DataFileCid        string
-	DataFileBlocks     []string
-	mu                 sync.Mutex // protects all below
-	MapStatus	       Status
-	BlockProviders     map[string][]string // datafileblock to peerid providers
-	MapAllocation      map[string]string // datafileblock to peerid allocated for map
-	RMapAllocation     map[string]string // reverse of map allocation
-	MapOutput          map[string][]string // datafileblock to list of NoOfReducers cids for map output files
-	ReduceStatus       Status
-	ReduceOutput       map[int]string 
-	ReduceAllocation   map[int]string // number to peerid
-	ReduceFileMap      map[int][]string // number to list of cids as per map output
+	Node             *core.IpfsNode
+	RpcClient        *gorpc.Client
+	NoOfReducers     int
+	MrOutputFile     string
+	DataFileCid      string
+	DataFileBlocks   []string
+	mu               sync.Mutex // protects all below
+	MapStatus        Status
+	BlockProviders   map[string][]string // datafileblock to peerid providers
+	MapAllocation    map[string]string   // datafileblock to peerid allocated for map
+	RMapAllocation   map[string]string   // reverse of map allocation
+	MapOutput        map[string][]string // datafileblock to list of NoOfReducers cids for map output files
+	ReduceStatus     Status
+	ReduceOutput     map[int]string
+	ReduceAllocation map[int]string   // number to peerid
+	ReduceFileMap    map[int][]string // number to list of cids as per map output
 }
 
 type Status struct {
@@ -54,29 +49,17 @@ type Status struct {
 }
 
 type MapTask struct {
-	Cid cid.Cid
+	Cid     cid.Cid
 	Retries int
 }
 
 type ReduceTask struct {
-	Index int
+	Index   int
 	Retries int
 }
 
 func (master *Master) RunMapReduce(ctx context.Context) {
-	// Preprocessing
-	mapFuncFileRootCid, err := common.AddFile(ctx, master.Node, master.MapFuncFilePath)
-	if (err != nil) {
-		log.Fatalln(err)
-	}
-	master.MapFuncFileCid = mapFuncFileRootCid.String()	
-	reduceFuncFileRootCid, err := common.AddFile(ctx, master.Node, master.ReduceFuncFilePath)
-	if (err != nil) {
-		log.Fatalln(err)
-	}
-	master.ReduceFuncFileCid = reduceFuncFileRootCid.String()	
-	log.Println("Added Map reduce func file to ipfs")
-	
+
 	// Get blocks for the input file
 	path := icorepath.New(master.DataFileCid)
 	nodeCoreApi, err := coreapi.NewCoreAPI(master.Node)
@@ -146,15 +129,15 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 }
 
 func (master *Master) fillPeerChan(peerChan chan string, done chan bool) {
-	for  _, peerIdList := range master.BlockProviders {
+	for _, peerIdList := range master.BlockProviders {
 		if len(done) == cap(done) {
-			<- done
-			return 
+			<-done
+			return
 		}
 		for _, peerId := range peerIdList {
 			if len(done) == cap(done) {
-				<- done
-				return 
+				<-done
+				return
 			}
 			peerChan <- peerId
 		}
@@ -173,7 +156,7 @@ func (master *Master) MapHandler(ctx context.Context, mapTask chan MapTask, wg *
 	}
 }
 
-func (master *Master) ReduceHandler (ctx context.Context, reduceTask chan ReduceTask, peerChan chan string, wg *sync.WaitGroup) {
+func (master *Master) ReduceHandler(ctx context.Context, reduceTask chan ReduceTask, peerChan chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range reduceTask {
 		if master.processReduce(ctx, peerChan, task.Index) != nil {
@@ -194,7 +177,7 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 		return err
 	}
 	ch, err := nodeCoreApi.Dht().FindProviders(ctx, icorepath.New(blockCidString))
-	if (err != nil) {
+	if err != nil {
 		log.Fatalln("Unable to get providers", err)
 		return err
 	}
@@ -226,8 +209,8 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 		}
 		var mapOutput common.MapOutput
 		if err = master.RpcClient.Call(peer.ID, common.MapServiceName, common.MapFuncName,
-			common.MapInput{FuncFileCid: master.MapFuncFileCid, NoOfReducers: master.NoOfReducers, 
-				DataFileCid: blockCidString, MasterPeerId: master.Node.Identity.String(),}, 
+			common.MapInput{NoOfReducers: master.NoOfReducers,
+				DataFileCid: blockCidString, MasterPeerId: master.Node.Identity.String()},
 			// PREV--> &common.Empty{}); err != nil {
 			&mapOutput); err != nil {
 			log.Println("Unable to call peer for map", err)
@@ -258,9 +241,9 @@ func (master *Master) processMapOutput(ctx context.Context, mapOutput common.Map
 	master.MapStatus.Complete += 1
 	log.Println("Map output obtained for", mapOutput.DataFileCid)
 
-	// PREV --> 
+	// PREV -->
 	// if master.MapStatus.Complete == master.MapStatus.Total {
-	// 	go master.startReduce() 
+	// 	go master.startReduce()
 	// }
 	return nil
 }
@@ -290,7 +273,7 @@ func (master *Master) processMapOutput(ctx context.Context, mapOutput common.Map
 // 				}
 // 				if err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
 // 					common.ReduceInput{FuncFileCid: master.ReduceFuncFileCid, KvFileCids: master.ReduceFileMap[i],
-// 						ReducerNo: i, MasterPeerId: master.Node.Identity.String(),}, 
+// 						ReducerNo: i, MasterPeerId: master.Node.Identity.String(),},
 // 					&common.Empty{}); err != nil {
 // 					log.Println("Unable to call peer for reduce", err)
 // 					continue
@@ -301,7 +284,7 @@ func (master *Master) processMapOutput(ctx context.Context, mapOutput common.Map
 // 			}
 // 		}
 // 	}
-// 	// check 
+// 	// check
 // 	if len(master.ReduceAllocation) != master.NoOfReducers {
 // 		log.Fatalln("Unable to find the required reducers")
 // 	}
@@ -320,8 +303,8 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 		}
 		var reduceOutput common.ReduceOutput
 		if err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
-			common.ReduceInput{FuncFileCid: master.ReduceFuncFileCid, KvFileCids: master.ReduceFileMap[reduceIndex],
-				ReducerNo: reduceIndex, MasterPeerId: master.Node.Identity.String(),}, 
+			common.ReduceInput{KvFileCids: master.ReduceFileMap[reduceIndex],
+				ReducerNo: reduceIndex, MasterPeerId: master.Node.Identity.String()},
 			// &common.Empty{}); err != nil {
 			&reduceOutput); err != nil {
 			log.Println("Unable to call peer for reduce", err)
@@ -345,7 +328,7 @@ func (master *Master) processReduceOutput(ctx context.Context, reduceOutput comm
 	log.Println("Reduce output obtained for", reduceOutput.ReducerNo)
 	// PREV-->
 	// if master.ReduceStatus.Complete == master.ReduceStatus.Total {
-	// 	go master.combineOutput() 
+	// 	go master.combineOutput()
 	// }
 	return nil
 }
