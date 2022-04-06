@@ -9,6 +9,7 @@ type MapInput struct {
 	NoOfReducers int
 	DataFileCid  string
 	MasterPeerId string
+	Round        int
 }
 
 type MapOutput struct {
@@ -25,6 +26,7 @@ type ReduceInput struct {
 	KvFileCids   []string
 	MasterPeerId string
 	ReducerNo    int
+	Round        int
 }
 
 type ReduceOutput struct {

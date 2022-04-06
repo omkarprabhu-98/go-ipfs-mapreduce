@@ -1,10 +1,9 @@
 package mapreduce
 
 import (
-	core "github.com/ipfs/go-ipfs/core"
+	"github.com/ipfs/go-ipfs/core"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	gorpc "github.com/libp2p/go-libp2p-gorpc"
-
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/core/mapper"
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/core/master"
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/core/reducer"
@@ -22,10 +21,11 @@ func RegisterProtocol(node *core.IpfsNode) error {
 	return nil
 }
 
-func InitMaster(node *core.IpfsNode,
+func InitMaster(node *core.IpfsNode, round int,
 	noOfReducers int, dataFileCid string, outputFile string) (*master.Master, error) {
 	master := master.Master{
 		Node:        node,
+		Round:       round,
 		DataFileCid: dataFileCid, BlockProviders: make(map[string][]string),
 		MapAllocation:    make(map[string]string),
 		ReduceAllocation: make(map[int]string),

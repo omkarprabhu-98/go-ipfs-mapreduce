@@ -11,27 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	mapreduce "github.com/omkarprabhu-98/go-ipfs-mapreduce"
-	common "github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
-
-	// "github.com/libp2p/go-libp2p"
-	// "github.com/ipfs/go-cid"
-	core "github.com/ipfs/go-ipfs/core"
-	// "github.com/libp2p/go-libp2p-core/host"
-	// "github.com/libp2p/go-libp2p-core/network"
-	// "github.com/libp2p/go-libp2p-core/peer"
-	peerstore "github.com/libp2p/go-libp2p-core/peer"
-	// multiaddr "github.com/multiformats/go-multiaddr"
-	// icorepath "github.com/ipfs/interface-go-ipfs-core/path"
-
-	// corenet "github.com/ipfs/go-ipfs/core/corehttp"
-	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
-	// "github.com/ipfs/go-ipfs/core"
-	// "github.com/ipfs/go-ipfs/core/coreapi"
-	// icore "github.com/ipfs/interface-go-ipfs-core"
 	config "github.com/ipfs/go-ipfs-config"
-	libp2p "github.com/ipfs/go-ipfs/core/node/libp2p"
+	"github.com/ipfs/go-ipfs/core"
+	"github.com/ipfs/go-ipfs/core/node/libp2p"
 	"github.com/ipfs/go-ipfs/plugin/loader" // This package is needed so that all the preloaded plugins are loaded automatically
+	"github.com/ipfs/go-ipfs/repo/fsrepo"
+	peerstore "github.com/libp2p/go-libp2p-core/peer"
+	mapreduce "github.com/omkarprabhu-98/go-ipfs-mapreduce"
+	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
 )
 
 func main() {
@@ -46,10 +33,11 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
 	}
-	if len(os.Args) == 4 {
-		n, _ := strconv.Atoi(os.Args[1])
+	if len(os.Args) == 5 {
+		round, _ := strconv.Atoi(os.Args[1])
+		n, _ := strconv.Atoi(os.Args[2])
 		fmt.Println(n)
-		master, err := mapreduce.InitMaster(node, n, os.Args[2], os.Args[3])
+		master, err := mapreduce.InitMaster(node, round, n, os.Args[3], os.Args[4])
 		if err != nil {
 			panic(fmt.Errorf("failed to init master: %s", err))
 		}

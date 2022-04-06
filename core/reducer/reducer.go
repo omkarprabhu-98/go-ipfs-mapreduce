@@ -20,28 +20,12 @@ type ReduceService struct {
 	Node *core.IpfsNode
 }
 
-// PREV--> func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, empty *common.Empty) error {
 func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, reduceOutput *common.ReduceOutput) error {
 	log.Println("In Reduce")
-	// PREV -->
-	// go func () {
-	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data
-	// is lost and retries
-	// ctx := context.Background()
-	outputFileCid, _ := rs.doReduce(ctx, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
+
+	outputFileCid, _ := rs.doReduce(ctx, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo, reduceInput.Round)
 	log.Println("Reduce output ready")
-	// PREV-->
-	// peer, err := common.GetPeerFromId(reduceInput.MasterPeerId)
-	// if err != nil {
-	// 	log.Fatalln("Unable to get master peer")
-	// }
-	// rpcClient := gorpc.NewClient(rs.Node.PeerHost, common.ProtocolID)
-	// if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterReduceOutputFuncName,
-	// 	common.ReduceOutput{ReducerNo: reduceInput.ReducerNo, OutputFileCid: outputFileCid,},
-	// 	&common.Empty{}); err != nil {
-	// 	log.Fatalln("Err calling the master for reduce output", err)
-	// }
+
 	reduceOutput.ReducerNo = reduceInput.ReducerNo
 	reduceOutput.OutputFileCid = outputFileCid
 	log.Println("Pinged master with reduce output")
@@ -50,8 +34,8 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 }
 
 func (rs *ReduceService) doReduce(ctx context.Context,
-	kvFileCids []string,
-	masterPeerId string, reducerNo int) (string, error) {
+	kvFileCids []string, masterPeerId string,
+	reducerNo int, round int) (string, error) {
 	var kva []common.KeyValue
 	var kv common.KeyValue
 	// fill the map from all files
@@ -83,8 +67,18 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	defer os.Remove(filePath)
 	log.Println("Reduce output file ready")
 
+	var output map[string]string
+	switch round {
+	case 1:
+		output = reducef1(kva)
+	case 2:
+		output = reducef2(kva)
+	case 3:
+		output = reducef3(kva)
+	}
+
 	// Call reduce and write to temp file
-	for k, v := range reducef(kva) {
+	for k, v := range output {
 		_, err := fmt.Fprintf(file, "%s %s\n", k, v)
 		if err != nil {
 			log.Println("Unable to write output to file", err)
@@ -102,7 +96,7 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 
 // Reduce 3
 // <doc, word> <tf_idf>
-func reducef(kva []common.KeyValue) map[string]string {
+func reducef3(kva []common.KeyValue) map[string]string {
 
 	// [word][doc] = {count, total}
 	df_t := make(map[string]map[string]string)
@@ -139,34 +133,34 @@ func reducef(kva []common.KeyValue) map[string]string {
 
 // Reduce 2
 // <doc, word> <word_count, total_words>
-//func reducef(kva []common.KeyValue) map[string]string {
-//	kvMap := make(map[string]string)
-//	wordCount := make(map[string]int)
-//
-//	for _, kv := range kva {
-//		v, _ := strconv.Atoi(strings.Split(kv.Value, ";")[1])
-//		wordCount[kv.Key] += v
-//	}
-//
-//	for _, kv := range kva {
-//		vals := strings.Split(kv.Value, ";")
-//		kvMap[kv.Key+";"+vals[0]] = vals[1] + ";" + strconv.Itoa(wordCount[kv.Key])
-//	}
-//
-//	return kvMap
-//}
+func reducef2(kva []common.KeyValue) map[string]string {
+	kvMap := make(map[string]string)
+	wordCount := make(map[string]int)
+
+	for _, kv := range kva {
+		v, _ := strconv.Atoi(strings.Split(kv.Value, ";")[1])
+		wordCount[kv.Key] += v
+	}
+
+	for _, kv := range kva {
+		vals := strings.Split(kv.Value, ";")
+		kvMap[kv.Key+";"+vals[0]] = vals[1] + ";" + strconv.Itoa(wordCount[kv.Key])
+	}
+
+	return kvMap
+}
 
 //Reduce 1
 //<doc, word> <word_count>
-//func reducef(kva []common.KeyValue) map[string]string {
-//	kvMap := make(map[string]int)
-//	for _, kv := range kva {
-//		v, _ := strconv.Atoi(kv.Value)
-//		kvMap[kv.Key] += v
-//	}
-//	kv := make(map[string]string)
-//	for k, v := range kvMap {
-//		kv[k] = strconv.Itoa(v)
-//	}
-//	return kv
-//}
+func reducef1(kva []common.KeyValue) map[string]string {
+	kvMap := make(map[string]int)
+	for _, kv := range kva {
+		v, _ := strconv.Atoi(kv.Value)
+		kvMap[kv.Key] += v
+	}
+	kv := make(map[string]string)
+	for k, v := range kvMap {
+		kv[k] = strconv.Itoa(v)
+	}
+	return kv
+}

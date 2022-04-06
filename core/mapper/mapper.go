@@ -3,62 +3,39 @@ package mapper
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	core "github.com/ipfs/go-ipfs/core"
+	"github.com/ipfs/go-ipfs/core"
+	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	// gorpc "github.com/libp2p/go-libp2p-gorpc"
-
-	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
 )
 
 type MapService struct {
 	Node *core.IpfsNode
 }
 
-// PREV--> func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, empty *common.Empty) error {
 func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutput *common.MapOutput) error {
 	log.Println("In Map")
-	// PREV--> go func () {
-	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data
-	// is lost and retries
-	// PREV--> ctx := context.Background()
-	kvList, _ := ms.doMap(ctx, mapInput.DataFileCid)
+
+	kvList, _ := ms.doMap(ctx, mapInput.DataFileCid, mapInput.Round)
 	log.Println("Map output ready")
 	kvFileCids, err := ms.shuffleAndSave(ctx, kvList, mapInput.NoOfReducers, mapInput.DataFileCid)
 	if err != nil {
 		log.Fatalln("Unable to shuffle and save", err)
 	}
-	// PREV-->
-	// log.Println("Map output Cids ready")
-	// peer, err := common.GetPeerFromId(mapInput.MasterPeerId)
-	// if err != nil {
-	// 	log.Fatalln("Unable to get master peer")
-	// 	return err
-	// }
-	// if err := ms.Node.PeerHost.Connect(ctx, peer); err != nil {
-	// 	log.Fatalln("Unable to connect to master", err)
-	// 	return err
-	// }
-	// log.Println("Connected to master")
-	// rpcClient := gorpc.NewClient(ms.Node.PeerHost, common.ProtocolID)
-	// if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterMapOutputFuncName,
-	// 	common.MapOutput{DataFileCid: mapInput.DataFileCid, KvFileCids: kvFileCids,},
-	// 	&common.Empty{}); err != nil {
-	// 	log.Fatalln("Err calling the master for map output", err)
-	// PREV--> }
+
 	log.Println("Returned map output to master for ", mapInput.DataFileCid)
 	mapOutput.DataFileCid = mapInput.DataFileCid
 	mapOutput.KvFileCids = kvFileCids
-	// PREV--> } ()
 	return nil
 }
 
-func (ms *MapService) doMap(ctx context.Context, dataFileCid string) ([]common.KeyValue, error) {
+func (ms *MapService) doMap(ctx context.Context, dataFileCid string, round int) ([]common.KeyValue, error) {
 	dataFile, err := common.GetInTmpFile(ctx, ms.Node, dataFileCid)
 	if err != nil {
 		return nil, err
@@ -70,8 +47,20 @@ func (ms *MapService) doMap(ctx context.Context, dataFileCid string) ([]common.K
 		return nil, err
 	}
 	log.Println("Read data as string")
-	kvList := mapf(dataFile.Name(), string(content))
-	return kvList, nil
+	log.Println(round)
+	switch round {
+	case 1:
+		kvList := mapf1(dataFile.Name(), string(content))
+		return kvList, nil
+	case 2:
+		kvList := mapf2(dataFile.Name(), string(content))
+		return kvList, nil
+	case 3:
+		kvList := mapf3(dataFile.Name(), string(content))
+		return kvList, nil
+	}
+
+	return nil, nil
 }
 
 func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyValue, noOfReducers int, dataFileCid string) ([]string, error) {
@@ -128,7 +117,7 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 
 // Map 3
 // <word> <doc, word_count, total_words>
-func mapf(filename string, contents string) []common.KeyValue {
+func mapf3(filename string, contents string) []common.KeyValue {
 
 	rows := strings.Split(contents, "\n")
 
@@ -147,49 +136,49 @@ func mapf(filename string, contents string) []common.KeyValue {
 
 // Map 2
 // <doc> <word, word_count_in_doc>
-//func mapf(filename string, contents string) []common.KeyValue {
-//
-//	rows := strings.Split(contents, "\n")
-//
-//	var kva []common.KeyValue
-//	for _, row := range rows {
-//		if len(row) > 0 {
-//			vals := strings.Fields(row)
-//			key := strings.Split(vals[0], ";")
-//			kv := common.KeyValue{Key: key[0], Value: key[1] + ";" + vals[1]}
-//			kva = append(kva, kv)
-//		}
-//	}
-//	fmt.Println("Finished mapping")
-//	return kva
-//}
+func mapf2(filename string, contents string) []common.KeyValue {
+
+	rows := strings.Split(contents, "\n")
+
+	var kva []common.KeyValue
+	for _, row := range rows {
+		if len(row) > 0 {
+			vals := strings.Fields(row)
+			key := strings.Split(vals[0], ";")
+			kv := common.KeyValue{Key: key[0], Value: key[1] + ";" + vals[1]}
+			kva = append(kva, kv)
+		}
+	}
+	fmt.Println("Finished mapping")
+	return kva
+}
 
 // Map 1
 // <doc,word> <1>
-//func mapf(filename string, contents string) []common.KeyValue {
-//
-//	r := csv.NewReader(strings.NewReader(contents))
-//	var file []common.KeyValue
-//	for {
-//		record, err := r.Read()
-//		if err == io.EOF {
-//			break
-//		}
-//		if err != nil {
-//			log.Fatal(err)
-//		}
-//		row := common.KeyValue{Key: record[0], Value: record[1]}
-//		file = append(file, row)
-//	}
-//	fmt.Println("Finished reading file in mapper")
-//	var kva []common.KeyValue
-//	for _, row := range file {
-//		words := strings.Fields(row.Value)
-//		for _, word := range words {
-//			kv := common.KeyValue{Key: row.Key + ";" + word, Value: "1"}
-//			kva = append(kva, kv)
-//		}
-//	}
-//	fmt.Println("Finished mapping")
-//	return kva
-//}
+func mapf1(filename string, contents string) []common.KeyValue {
+
+	r := csv.NewReader(strings.NewReader(contents))
+	var file []common.KeyValue
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		row := common.KeyValue{Key: record[0], Value: record[1]}
+		file = append(file, row)
+	}
+	fmt.Println("Finished reading file in mapper")
+	var kva []common.KeyValue
+	for _, row := range file {
+		words := strings.Fields(row.Value)
+		for _, word := range words {
+			kv := common.KeyValue{Key: row.Key + ";" + word, Value: "1"}
+			kva = append(kva, kv)
+		}
+	}
+	fmt.Println("Finished mapping")
+	return kva
+}
