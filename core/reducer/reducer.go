@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"sort"
-	"strconv"
-
 	core "github.com/ipfs/go-ipfs/core"
+	"log"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+
 	// gorpc "github.com/libp2p/go-libp2p-gorpc"
 
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
@@ -48,30 +49,10 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 	return nil
 }
 
-func (rs *ReduceService) loadReduceFunc(ctx context.Context, fileCid string) (func(string, []string) string, error) {
-	log.Println("Getting Reduce func from plugin file")
-	p, err := common.GetPlugin(ctx, rs.Node, fileCid)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Plugin obtained")
-	xreducef, err := p.Lookup(common.ReduceFuncName)
-	if err != nil {
-		log.Println("Cannot find Reduce in the file", err)
-		return nil, err
-	}
-	reducef, ok := xreducef.(func(string, []string) string)
-	if !ok {
-		log.Println("Cannot find Reduce func with correct arguments", err)
-		return nil, err
-	}
-	return reducef, nil
-}
-
 func (rs *ReduceService) doReduce(ctx context.Context,
 	kvFileCids []string,
 	masterPeerId string, reducerNo int) (string, error) {
-	kvMap := make(map[string][]string)
+	var kva []common.KeyValue
 	var kv common.KeyValue
 	// fill the map from all files
 	for _, kvFileCid := range kvFileCids {
@@ -87,17 +68,10 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 				log.Println("Cannot decode from KV file", err)
 				return "", err
 			}
-			kvMap[kv.Key] = append(kvMap[kv.Key], kv.Value)
+			kva = append(kva, kv)
 		}
 	}
 	log.Println("Reduce output map ready")
-	// sort the kv map by key
-	keys := make([]string, 0, len(kvMap))
-	for k := range kvMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	log.Println("Reduce output keys sorted")
 
 	// Create output file file
 	filePath := fmt.Sprintf("%v-%v", masterPeerId, reducerNo)
@@ -110,13 +84,14 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	log.Println("Reduce output file ready")
 
 	// Call reduce and write to temp file
-	for _, k := range keys {
-		_, err := fmt.Fprintf(file, "%v %v\n", k, reducef(k, kvMap[k]))
+	for k, v := range reducef(kva) {
+		_, err := fmt.Fprintf(file, "%s %s\n", k, v)
 		if err != nil {
 			log.Println("Unable to write output to file", err)
 			return "", err
 		}
 	}
+
 	log.Println("Output written to file")
 	outfileCid, err := common.AddFile(ctx, rs.Node, filePath)
 	if err != nil {
@@ -125,7 +100,73 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	return outfileCid.String(), err
 }
 
-func reducef(key string, values []string) string {
-	// return the number of occurrences of this word.
-	return strconv.Itoa(len(values))
+// Reduce 3
+// <doc, word> <tf_idf>
+func reducef(kva []common.KeyValue) map[string]string {
+
+	// [word][doc] = {count, total}
+	df_t := make(map[string]map[string]string)
+	corpus_ids := make(map[string]bool)
+
+	for _, line := range kva {
+		word := line.Key
+		vals := strings.Split(line.Value, ";")
+		doc := vals[0]
+		_, ok := df_t[word]
+		if !ok {
+			df_t[word] = make(map[string]string)
+			df_t[word][doc] = vals[1] + ";" + vals[2]
+		}
+		df_t[word][doc] = vals[1] + ";" + vals[2]
+		corpus_ids[doc] = true
+	}
+
+	size := float64(len(corpus_ids))
+	kv := make(map[string]string)
+
+	for word, v := range df_t {
+		for doc, val := range v {
+			e := strings.Split(val, ";")
+			count, _ := strconv.ParseFloat(e[0], 64)
+			total, _ := strconv.ParseFloat(e[1], 64)
+			tf_idf := (count / total) * math.Log10(size/float64(len(df_t[word])))
+			kv[word+";"+doc] = fmt.Sprint(tf_idf)
+		}
+	}
+
+	return kv
 }
+
+// Reduce 2
+// <doc, word> <word_count, total_words>
+//func reducef(kva []common.KeyValue) map[string]string {
+//	kvMap := make(map[string]string)
+//	wordCount := make(map[string]int)
+//
+//	for _, kv := range kva {
+//		v, _ := strconv.Atoi(strings.Split(kv.Value, ";")[1])
+//		wordCount[kv.Key] += v
+//	}
+//
+//	for _, kv := range kva {
+//		vals := strings.Split(kv.Value, ";")
+//		kvMap[kv.Key+";"+vals[0]] = vals[1] + ";" + strconv.Itoa(wordCount[kv.Key])
+//	}
+//
+//	return kvMap
+//}
+
+//Reduce 1
+//<doc, word> <word_count>
+//func reducef(kva []common.KeyValue) map[string]string {
+//	kvMap := make(map[string]int)
+//	for _, kv := range kva {
+//		v, _ := strconv.Atoi(kv.Value)
+//		kvMap[kv.Key] += v
+//	}
+//	kv := make(map[string]string)
+//	for k, v := range kvMap {
+//		kv[k] = strconv.Itoa(v)
+//	}
+//	return kv
+//}

@@ -5,13 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	core "github.com/ipfs/go-ipfs/core"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	"unicode"
-
-	core "github.com/ipfs/go-ipfs/core"
 	// gorpc "github.com/libp2p/go-libp2p-gorpc"
 
 	"github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
@@ -128,17 +126,70 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 	return kvFileCids, nil
 }
 
+// Map 3
+// <word> <doc, word_count, total_words>
 func mapf(filename string, contents string) []common.KeyValue {
-	// function to detect word separators.
-	ff := func(r rune) bool { return !unicode.IsLetter(r) }
 
-	// split contents into an array of words.
-	words := strings.FieldsFunc(contents, ff)
+	rows := strings.Split(contents, "\n")
 
-	kva := []common.KeyValue{}
-	for _, w := range words {
-		kv := common.KeyValue{w, "1"}
-		kva = append(kva, kv)
+	var kva []common.KeyValue
+	for _, row := range rows {
+		if len(row) > 0 {
+			vals := strings.Fields(row)
+			keys := strings.Split(vals[0], ";")
+			kv := common.KeyValue{Key: keys[1], Value: keys[0] + ";" + vals[1]}
+			kva = append(kva, kv)
+		}
 	}
+	fmt.Println("Finished mapping")
 	return kva
 }
+
+// Map 2
+// <doc> <word, word_count_in_doc>
+//func mapf(filename string, contents string) []common.KeyValue {
+//
+//	rows := strings.Split(contents, "\n")
+//
+//	var kva []common.KeyValue
+//	for _, row := range rows {
+//		if len(row) > 0 {
+//			vals := strings.Fields(row)
+//			key := strings.Split(vals[0], ";")
+//			kv := common.KeyValue{Key: key[0], Value: key[1] + ";" + vals[1]}
+//			kva = append(kva, kv)
+//		}
+//	}
+//	fmt.Println("Finished mapping")
+//	return kva
+//}
+
+// Map 1
+// <doc,word> <1>
+//func mapf(filename string, contents string) []common.KeyValue {
+//
+//	r := csv.NewReader(strings.NewReader(contents))
+//	var file []common.KeyValue
+//	for {
+//		record, err := r.Read()
+//		if err == io.EOF {
+//			break
+//		}
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//		row := common.KeyValue{Key: record[0], Value: record[1]}
+//		file = append(file, row)
+//	}
+//	fmt.Println("Finished reading file in mapper")
+//	var kva []common.KeyValue
+//	for _, row := range file {
+//		words := strings.Fields(row.Value)
+//		for _, word := range words {
+//			kv := common.KeyValue{Key: row.Key + ";" + word, Value: "1"}
+//			kva = append(kva, kv)
+//		}
+//	}
+//	fmt.Println("Finished mapping")
+//	return kva
+//}
