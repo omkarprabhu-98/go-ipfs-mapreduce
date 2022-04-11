@@ -17,4 +17,5 @@
 # vendor/
 *output
 
+examples/blogtext_preprocessed.csv
 .idea

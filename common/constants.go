@@ -18,4 +18,6 @@ const (
 	// Reducer
 	ReduceFuncName    = "Reduce"
 	ReduceServiceName = "ReduceService"
+
+	Separator = ";"
 )

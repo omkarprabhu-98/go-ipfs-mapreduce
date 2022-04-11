@@ -100,73 +100,43 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	return outfileCid.String(), err
 }
 
-// Reduce 3
-// <doc, word> <tf_idf>
 func reducef(kva []common.KeyValue) map[string]string {
 
-	// [word][doc] = {count, total}
-	df_t := make(map[string]map[string]string)
-	corpus_ids := make(map[string]bool)
-
-	for _, line := range kva {
-		word := line.Key
-		vals := strings.Split(line.Value, ";")
-		doc := vals[0]
-		_, ok := df_t[word]
-		if !ok {
-			df_t[word] = make(map[string]string)
-			df_t[word][doc] = vals[1] + ";" + vals[2]
-		}
-		df_t[word][doc] = vals[1] + ";" + vals[2]
-		corpus_ids[doc] = true
-	}
-
-	size := float64(len(corpus_ids))
+	//[word][doc] -> count
+	tf_c := make(map[string]map[string]int)
+	//[word][doc] -> total
+	tf_t := make(map[string]map[string]int)
+	// word -> # of documents
+	df := make(map[string]int)
 	kv := make(map[string]string)
 
-	for word, v := range df_t {
-		for doc, val := range v {
-			e := strings.Split(val, ";")
-			count, _ := strconv.ParseFloat(e[0], 64)
-			total, _ := strconv.ParseFloat(e[1], 64)
-			tf_idf := (count / total) * math.Log10(size/float64(len(df_t[word])))
-			kv[word+";"+doc] = fmt.Sprint(tf_idf)
+	for _, line := range kva {
+		if line.Key != "" {
+			keys := strings.Split(line.Key, common.Separator)
+			word := keys[0]
+			doc := keys[1]
+			vals := strings.Split(line.Value, common.Separator)
+
+			_, ok := tf_c[word]
+			if !ok {
+				tf_c[word] = make(map[string]int)
+				tf_t[word] = make(map[string]int)
+			}
+
+			count, _ := strconv.Atoi(vals[0])
+			total, _ := strconv.Atoi(vals[1])
+			tf_c[word][doc] = tf_c[word][doc] + count
+			tf_t[word][doc] = tf_t[word][doc] + total
+			df[word]++
+		}
+	}
+
+	for word, docs := range tf_c {
+		for doc, count := range docs {
+			tf_idf := (float64(count) / float64(tf_t[word][doc])) * math.Log10(4/float64(df[word]))
+			kv[word+common.Separator+doc] = fmt.Sprint(tf_idf)
 		}
 	}
 
 	return kv
 }
-
-// Reduce 2
-// <doc, word> <word_count, total_words>
-//func reducef(kva []common.KeyValue) map[string]string {
-//	kvMap := make(map[string]string)
-//	wordCount := make(map[string]int)
-//
-//	for _, kv := range kva {
-//		v, _ := strconv.Atoi(strings.Split(kv.Value, ";")[1])
-//		wordCount[kv.Key] += v
-//	}
-//
-//	for _, kv := range kva {
-//		vals := strings.Split(kv.Value, ";")
-//		kvMap[kv.Key+";"+vals[0]] = vals[1] + ";" + strconv.Itoa(wordCount[kv.Key])
-//	}
-//
-//	return kvMap
-//}
-
-//Reduce 1
-//<doc, word> <word_count>
-//func reducef(kva []common.KeyValue) map[string]string {
-//	kvMap := make(map[string]int)
-//	for _, kv := range kva {
-//		v, _ := strconv.Atoi(kv.Value)
-//		kvMap[kv.Key] += v
-//	}
-//	kv := make(map[string]string)
-//	for k, v := range kvMap {
-//		kv[k] = strconv.Itoa(v)
-//	}
-//	return kv
-//}
