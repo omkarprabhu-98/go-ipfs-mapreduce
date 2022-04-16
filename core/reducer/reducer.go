@@ -6,10 +6,10 @@ import (
 	"fmt"
 	core "github.com/ipfs/go-ipfs/core"
 	"log"
-	"math"
+	// "math"
 	"os"
 	"strconv"
-	"strings"
+	// "strings"
 
 	// gorpc "github.com/libp2p/go-libp2p-gorpc"
 
@@ -101,42 +101,54 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 }
 
 func reducef(kva []common.KeyValue) map[string]string {
-
-	//[word][doc] -> count
-	tf_c := make(map[string]map[string]int)
-	//[word][doc] -> total
-	tf_t := make(map[string]map[string]int)
-	// word -> # of documents
-	df := make(map[string]int)
+	kvi := make(map[string]int)
+	for _, v := range(kva) {
+		_, ok := kvi[v.Key]
+		if !ok {
+			kvi[v.Key] = 0
+		}
+		kvi[v.Key] += 1
+	}
 	kv := make(map[string]string)
-
-	for _, line := range kva {
-		if line.Key != "" {
-			keys := strings.Split(line.Key, common.Separator)
-			word := keys[0]
-			doc := keys[1]
-			vals := strings.Split(line.Value, common.Separator)
-
-			_, ok := tf_c[word]
-			if !ok {
-				tf_c[word] = make(map[string]int)
-				tf_t[word] = make(map[string]int)
-			}
-
-			count, _ := strconv.Atoi(vals[0])
-			total, _ := strconv.Atoi(vals[1])
-			tf_c[word][doc] = tf_c[word][doc] + count
-			tf_t[word][doc] = tf_t[word][doc] + total
-			df[word]++
-		}
+	for k, v := range(kvi) {
+		kv[k] = strconv.Itoa(v)
 	}
-
-	for word, docs := range tf_c {
-		for doc, count := range docs {
-			tf_idf := (float64(count) / float64(tf_t[word][doc])) * math.Log10(4/float64(df[word]))
-			kv[word+common.Separator+doc] = fmt.Sprint(tf_idf)
-		}
-	}
-
 	return kv
+	// //[word][doc] -> count
+	// tf_c := make(map[string]map[string]int)
+	// //[word][doc] -> total
+	// tf_t := make(map[string]map[string]int)
+	// // word -> # of documents
+	// df := make(map[string]int)
+	// kv := make(map[string]string)
+
+	// for _, line := range kva {
+	// 	if line.Key != "" {
+	// 		keys := strings.Split(line.Key, common.Separator)
+	// 		word := keys[0]
+	// 		doc := keys[1]
+	// 		vals := strings.Split(line.Value, common.Separator)
+
+	// 		_, ok := tf_c[word]
+	// 		if !ok {
+	// 			tf_c[word] = make(map[string]int)
+	// 			tf_t[word] = make(map[string]int)
+	// 		}
+
+	// 		count, _ := strconv.Atoi(vals[0])
+	// 		total, _ := strconv.Atoi(vals[1])
+	// 		tf_c[word][doc] = tf_c[word][doc] + count
+	// 		tf_t[word][doc] = tf_t[word][doc] + total
+	// 		df[word]++
+	// 	}
+	// }
+
+	// for word, docs := range tf_c {
+	// 	for doc, count := range docs {
+	// 		tf_idf := (float64(count) / float64(tf_t[word][doc])) * math.Log10(4/float64(df[word]))
+	// 		kv[word+common.Separator+doc] = fmt.Sprint(tf_idf)
+	// 	}
+	// }
+
+	// return kv
 }

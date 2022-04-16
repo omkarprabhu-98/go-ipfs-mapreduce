@@ -23,16 +23,19 @@ func RegisterProtocol(node *core.IpfsNode) error {
 }
 
 func InitMaster(node *core.IpfsNode,
-	noOfReducers int, dataFileCid string, outputFile string) (*master.Master, error) {
+	noOfReducers int, dataFileCid string, outputFile string, datafileBlocks []string, noOfDocuments int) (*master.Master, error) {
 	master := master.Master{
 		Node:        node,
-		DataFileCid: dataFileCid, BlockProviders: make(map[string][]string),
+		DataFileCid: dataFileCid, 
+		DataFileBlocks: datafileBlocks,
+		BlockProviders: make(map[string][]string),
 		MapAllocation:    make(map[string]string),
 		ReduceAllocation: make(map[int]string),
 		MapOutput:        make(map[string][]string),
 		ReduceFileMap:    make(map[int][]string),
 		ReduceOutput:     make(map[int]string),
 		NoOfReducers:     noOfReducers,
+		NoOfDocuments: 	  noOfDocuments,	  
 		MrOutputFile:     outputFile,
 	}
 	rpcHost := gorpc.NewServer(node.PeerHost, protocolID)

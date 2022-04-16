@@ -41,6 +41,7 @@ type Master struct {
 	ReduceOutput     map[int]string
 	ReduceAllocation map[int]string   // number to peerid
 	ReduceFileMap    map[int][]string // number to list of cids as per map output
+	NoOfDocuments    int
 }
 
 type Status struct {
@@ -59,30 +60,35 @@ type ReduceTask struct {
 }
 
 func (master *Master) RunMapReduce(ctx context.Context) {
-
-	// Get blocks for the input file
-	path := icorepath.New(master.DataFileCid)
-	nodeCoreApi, err := coreapi.NewCoreAPI(master.Node)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	dagnode, err := nodeCoreApi.ResolveNode(ctx, path)
-	if err != nil {
-		log.Fatalln("Unable to get the dag node", err)
-	}
-	dataBlocks := dagnode.Links()
-	if len(dataBlocks) == 0 {
-		rootCid, err := cid.Decode(master.DataFileCid)
+	if (len(master.DataFileBlocks) == 0) {
+		// Get blocks for the input file
+		path := icorepath.New(master.DataFileCid)
+		nodeCoreApi, err := coreapi.NewCoreAPI(master.Node)
 		if err != nil {
-			log.Fatalln("Unable to decode cid", err)
+			log.Fatalln(err)
 		}
-		dataBlocks = append(dataBlocks, &format.Link{Cid: rootCid})
+		dagnode, err := nodeCoreApi.ResolveNode(ctx, path)
+		if err != nil {
+			log.Fatalln("Unable to get the dag node", err)
+		}
+		dataBlocks := dagnode.Links()
+		if len(dataBlocks) == 0 {
+			rootCid, err := cid.Decode(master.DataFileCid)
+			if err != nil {
+				log.Fatalln("Unable to decode cid", err)
+			}
+			dataBlocks = append(dataBlocks, &format.Link{Cid: rootCid})
+		}
+		log.Println("Found", len(dataBlocks), "links for root cid", master.DataFileCid)
+		for _, link := range dataBlocks {
+			log.Println("Sub block:", link)
+			master.DataFileBlocks = append(master.DataFileBlocks, link.Cid.String())
+		}
 	}
-	log.Println("Found", len(dataBlocks), "links for root cid", master.DataFileCid)
 
 	// Init state variables
 	master.RpcClient = gorpc.NewClient(master.Node.PeerHost, common.ProtocolID)
-	master.MapStatus.Total = len(dataBlocks)
+	master.MapStatus.Total = len(master.DataFileBlocks)
 	master.MapStatus.Complete = 0
 	master.ReduceStatus.Total = master.NoOfReducers
 	master.ReduceStatus.Complete = 0
@@ -91,17 +97,17 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 	mapTask := make(chan MapTask)
 	wg := new(sync.WaitGroup)
 	maxRange := common.MaxGoRoutines
-	if len(dataBlocks) < maxRange {
-		maxRange = len(dataBlocks)
+	if len(master.DataFileBlocks) < maxRange {
+		maxRange = len(master.DataFileBlocks)
 	}
 	for i := 0; i < maxRange; i++ {
 		wg.Add(1)
 		go master.MapHandler(ctx, mapTask, wg)
 	}
-	for _, link := range dataBlocks {
-		log.Println("Sub block:", link)
-		master.DataFileBlocks = append(master.DataFileBlocks, link.Cid.String())
-		mapTask <- MapTask{link.Cid, 0}
+	for _, cc := range master.DataFileBlocks {
+		log.Println(cc)
+		c, _ := cid.Decode(cc)
+		mapTask <- MapTask{c, 0}
 	}
 	close(mapTask)
 	wg.Wait()
@@ -123,6 +129,7 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 	}
 	close(reduceTask)
 	wg.Wait()
+
 	done <- true
 	log.Println("REDUCE COMPLETE")
 	master.combineOutput()
@@ -148,6 +155,7 @@ func (master *Master) MapHandler(ctx context.Context, mapTask chan MapTask, wg *
 	defer wg.Done()
 	for task := range mapTask {
 		if master.processBlock(ctx, task.Cid) != nil {
+			log.Println("Failed to process block", task.Cid, "Retry: ", task.Retries)
 			if task.Retries < common.MaxRetries {
 				task.Retries += 1
 				mapTask <- task
@@ -203,7 +211,7 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 			continue
 		}
 		if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
-			log.Println("Unable to connect to peer for map", err)
+			// log.Println("Unable to connect to peer for map", err)
 			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}
@@ -213,7 +221,7 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 				DataFileCid: blockCidString, MasterPeerId: master.Node.Identity.String()},
 			// PREV--> &common.Empty{}); err != nil {
 			&mapOutput); err != nil {
-			log.Println("Unable to call peer for map", err)
+			// log.Println("Unable to call peer for map", err)
 			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}

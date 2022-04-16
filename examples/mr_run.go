@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"bufio"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
+	"log"
 
 	mapreduce "github.com/omkarprabhu-98/go-ipfs-mapreduce"
 	common "github.com/omkarprabhu-98/go-ipfs-mapreduce/common"
@@ -34,6 +36,50 @@ import (
 	"github.com/ipfs/go-ipfs/plugin/loader" // This package is needed so that all the preloaded plugins are loaded automatically
 )
 
+func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
+	file, err := os.Open(inputFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	sc := bufio.NewScanner(file)
+	var fileCids []string
+	lines := 0
+	var tmpFile *os.File
+	i := 0
+	// Read through 'tokens' until an EOF is encountered.
+	for sc.Scan() {
+		lines += 1
+		if (i == N) {
+			i = 0;
+			tmpFile.Close()
+			cid, _ := common.AddFile(context.Background(), node, tmpFile.Name())
+			fileCids = append(fileCids, cid.String())
+			fmt.Println("Input file added", cid)
+			// add file to ipfs
+			os.Remove(tmpFile.Name())
+		}
+		if (i == 0) {
+			tmpFile, _ = ioutil.TempFile(os.TempDir(), "prefix-")
+		}
+		if _, err = tmpFile.Write(sc.Bytes()); err != nil {
+			log.Fatal("Failed to write to temporary file", err)
+		}
+		i += 1
+	}
+	tmpFile.Close()
+	cid, _ := common.AddFile(context.Background(), node, tmpFile.Name())
+	fileCids = append(fileCids, cid.String())
+	fmt.Println("Input file added", cid)
+	// add file to ipfs
+	os.Remove(tmpFile.Name())
+
+	if err := sc.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return fileCids, lines
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -46,10 +92,11 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
 	}
-	if len(os.Args) == 4 {
+	if len(os.Args) != 2 {
 		n, _ := strconv.Atoi(os.Args[1])
 		fmt.Println(n)
-		master, err := mapreduce.InitMaster(node, n, os.Args[2], os.Args[3])
+		N, _ := strconv.Atoi(os.Args[len(os.Args) - 1])
+		master, err := mapreduce.InitMaster(node, n, os.Args[2], os.Args[3], os.Args[4 : len(os.Args) - 1], N)
 		if err != nil {
 			panic(fmt.Errorf("failed to init master: %s", err))
 		}
@@ -73,8 +120,13 @@ func main() {
 			}
 		}()
 	} else {
-		cid, _ := common.AddFile(ctx, node, os.Args[1])
-		fmt.Println("Input file added", cid)
+		// cid, _ := common.AddFile(ctx, node, os.Args[1])
+		// fmt.Println("Input file added", cid)
+		fileCids, lines := shard(node, os.Args[1], 4)
+		for _, i := range(fileCids) {
+			fmt.Println(i)
+		}
+		fmt.Println(lines)
 	}
 	// wait for a SIGINT or SIGTERM signal
 	ch := make(chan os.Signal, 1)
