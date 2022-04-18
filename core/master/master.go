@@ -154,11 +154,12 @@ func (master *Master) fillPeerChan(peerChan chan string, done chan bool) {
 func (master *Master) MapHandler(ctx context.Context, mapTask chan MapTask, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range mapTask {
-		if master.processBlock(ctx, task.Cid) != nil {
-			log.Println("Failed to process block", task.Cid, "Retry: ", task.Retries)
+		for err := master.processBlock(ctx, task.Cid); err == nil; {
 			if task.Retries < common.MaxRetries {
+				log.Println("Failed to process block", task.Cid, "Retry: ", task.Retries)
 				task.Retries += 1
-				mapTask <- task
+			} else {
+				break;
 			}
 		}
 	}
@@ -167,10 +168,12 @@ func (master *Master) MapHandler(ctx context.Context, mapTask chan MapTask, wg *
 func (master *Master) ReduceHandler(ctx context.Context, reduceTask chan ReduceTask, peerChan chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range reduceTask {
-		if master.processReduce(ctx, peerChan, task.Index) != nil {
+		for err := master.processReduce(ctx, peerChan, task.Index); err == nil; {
 			if task.Retries < common.MaxRetries {
+				log.Println("Failed to process block", task.Index, "Retry: ", task.Retries)
 				task.Retries += 1
-				reduceTask <- task
+			} else {
+				break;
 			}
 		}
 	}
