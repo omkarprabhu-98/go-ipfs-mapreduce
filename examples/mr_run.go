@@ -62,7 +62,8 @@ func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
 		if (i == 0) {
 			tmpFile, _ = ioutil.TempFile(os.TempDir(), "prefix-")
 		}
-		if _, err = tmpFile.Write(sc.Bytes()); err != nil {
+		txt := sc.Text() + "\n"
+		if _, err = tmpFile.Write([]byte(txt)); err != nil {
 			log.Fatal("Failed to write to temporary file", err)
 		}
 		i += 1
