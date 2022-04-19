@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"time"
 
 	// "github.com/ipfs/go-ipfs-files"
 	core "github.com/ipfs/go-ipfs/core"
@@ -60,6 +61,7 @@ type ReduceTask struct {
 }
 
 func (master *Master) RunMapReduce(ctx context.Context) {
+	t1 := time.Now()
 	if (len(master.DataFileBlocks) == 0) {
 		// Get blocks for the input file
 		path := icorepath.New(master.DataFileCid)
@@ -133,6 +135,10 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 	done <- true
 	log.Println("REDUCE COMPLETE")
 	master.combineOutput()
+	
+	t2 := time.Now()
+	diff := t2.Sub(t1)
+	log.Println("TIME TAKEN:", diff)
 }
 
 func (master *Master) fillPeerChan(peerChan chan string, done chan bool) {
