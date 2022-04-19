@@ -210,12 +210,12 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 	for _, peerId := range master.BlockProviders[blockCidString] {
 		peer, err := common.GetPeerFromId(peerId)
 		if err != nil {
-			log.Println("Unable to create peer f", err)
+			// log.Println("Unable to create peer f", err)
 			continue
 		}
 		if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
 			// log.Println("Unable to connect to peer for map", err)
-			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
+			// master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}
 		var mapOutput common.MapOutput
@@ -225,7 +225,7 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 			// PREV--> &common.Empty{}); err != nil {
 			&mapOutput); err != nil {
 			// log.Println("Unable to call peer for map", err)
-			master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
+			// master.BlockProviders[blockCidString] = master.BlockProviders[blockCidString][1:]
 			continue
 		}
 		log.Println("Allocated", blockCidString, "to peer: ", peer)
@@ -305,11 +305,11 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 	for peerId := range peerChan {
 		peer, err := common.GetPeerFromId(peerId)
 		if err != nil {
-			log.Println("Unable to create peer f", err)
+			// log.Println("Unable to create peer f", err)
 			continue
 		}
 		if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
-			log.Println("Unable to connect to peer for reduce", err)
+			// log.Println("Unable to connect to peer for reduce", err)
 			continue
 		}
 		var reduceOutput common.ReduceOutput
@@ -318,7 +318,7 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 				ReducerNo: reduceIndex, MasterPeerId: master.Node.Identity.String()},
 			// &common.Empty{}); err != nil {
 			&reduceOutput); err != nil {
-			log.Println("Unable to call peer for reduce", err)
+			// log.Println("Unable to call peer for reduce", err)
 			continue
 		}
 		log.Println("Peer", peer.ID, "mapped to reducer no", reduceIndex)

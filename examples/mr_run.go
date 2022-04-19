@@ -93,11 +93,19 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
 	}
-	if len(os.Args) != 2 {
+	if len(os.Args) != 3 {
 		n, _ := strconv.Atoi(os.Args[1])
 		fmt.Println(n)
-		N, _ := strconv.Atoi(os.Args[len(os.Args) - 1])
-		master, err := mapreduce.InitMaster(node, n, os.Args[2], os.Args[3], os.Args[4 : len(os.Args) - 1], N)
+		// get from file
+		file, _ := os.Open(os.Args[4])
+		defer file.Close()
+		sc := bufio.NewScanner(file)
+		var fcids []string
+		for sc.Scan() {
+			fcids = append(fcids, sc.Text())
+		}
+		N, _ := strconv.Atoi(os.Args[5])
+		master, err := mapreduce.InitMaster(node, n, os.Args[2], os.Args[3], fcids, N)
 		if err != nil {
 			panic(fmt.Errorf("failed to init master: %s", err))
 		}
@@ -124,9 +132,18 @@ func main() {
 		// cid, _ := common.AddFile(ctx, node, os.Args[1])
 		// fmt.Println("Input file added", cid)
 		fileCids, lines := shard(node, os.Args[1], 4)
-		for _, i := range(fileCids) {
-			fmt.Println(i)
+		// print to file
+		f, _ := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+		for ind, i := range(fileCids) {
+			if _, err = f.WriteString(i); err != nil {
+				fmt.Println(err)
+			} else {
+				if ind != (len(fileCids) - 1) {
+					f.WriteString("\n")
+				}
+			}
 		}
+		f.Close()
 		fmt.Println(lines)
 	}
 	// wait for a SIGINT or SIGTERM signal
