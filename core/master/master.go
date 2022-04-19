@@ -314,8 +314,8 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 		}
 		var reduceOutput common.ReduceOutput
 		if err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
-			common.ReduceInput{KvFileCids: master.ReduceFileMap[reduceIndex],
-				ReducerNo: reduceIndex, MasterPeerId: master.Node.Identity.String()},
+			common.ReduceInput{KvFileCids: master.ReduceFileMap[reduceIndex], ReducerNo: reduceIndex,
+				MasterPeerId: master.Node.Identity.String(), NoOfDocuments: master.NoOfDocuments},
 			// &common.Empty{}); err != nil {
 			&reduceOutput); err != nil {
 			log.Println("Unable to call peer for reduce", err)

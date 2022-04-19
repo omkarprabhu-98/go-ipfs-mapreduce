@@ -22,9 +22,10 @@ type KeyValue struct {
 }
 
 type ReduceInput struct {
-	KvFileCids   []string
-	MasterPeerId string
-	ReducerNo    int
+	KvFileCids    []string
+	MasterPeerId  string
+	ReducerNo     int
+	NoOfDocuments int
 }
 
 type ReduceOutput struct {
