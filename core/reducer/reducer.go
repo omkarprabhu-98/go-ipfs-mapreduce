@@ -6,6 +6,9 @@ import (
 	"fmt"
 	core "github.com/ipfs/go-ipfs/core"
 	"log"
+	"math"
+	"strings"
+
 	// "math"
 	"os"
 	"strconv"
@@ -29,7 +32,8 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 	// if master does not get a response after a duration it assumes the node/data
 	// is lost and retries
 	// ctx := context.Background()
-	outputFileCid, _ := rs.doReduce(ctx, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
+	outputFileCid, _ := rs.doReduce(ctx, reduceInput.KvFileCids, reduceInput.MasterPeerId,
+		reduceInput.ReducerNo, reduceInput.NoOfDocuments)
 	log.Println("Reduce output ready")
 	// PREV-->
 	// peer, err := common.GetPeerFromId(reduceInput.MasterPeerId)
@@ -51,7 +55,7 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 
 func (rs *ReduceService) doReduce(ctx context.Context,
 	kvFileCids []string,
-	masterPeerId string, reducerNo int) (string, error) {
+	masterPeerId string, reducerNo int, documentCount int) (string, error) {
 	var kva []common.KeyValue
 	var kv common.KeyValue
 	// fill the map from all files
@@ -84,7 +88,7 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	log.Println("Reduce output file ready")
 
 	// Call reduce and write to temp file
-	for k, v := range reducef(kva) {
+	for k, v := range reducef(kva, documentCount) {
 		_, err := fmt.Fprintf(file, "%s %s\n", k, v)
 		if err != nil {
 			log.Println("Unable to write output to file", err)
@@ -100,55 +104,56 @@ func (rs *ReduceService) doReduce(ctx context.Context,
 	return outfileCid.String(), err
 }
 
-func reducef(kva []common.KeyValue) map[string]string {
-	kvi := make(map[string]int)
-	for _, v := range(kva) {
-		_, ok := kvi[v.Key]
-		if !ok {
-			kvi[v.Key] = 0
-		}
-		kvi[v.Key] += 1
-	}
+func reducef(kva []common.KeyValue, documentCount int) map[string]string {
+	//kvi := make(map[string]int)
+	//for _, v := range(kva) {
+	//	_, ok := kvi[v.Key]
+	//	if !ok {
+	//		kvi[v.Key] = 0
+	//	}
+	//	kvi[v.Key] += 1
+	//}
+	//kv := make(map[string]string)
+	//for k, v := range(kvi) {
+	//	kv[k] = strconv.Itoa(v)
+	//}
+	//return kv
+
+	//[word][doc] -> count
+	tf_c := make(map[string]map[string]int)
+	//[word][doc] -> total
+	tf_t := make(map[string]map[string]int)
+	// word -> # of documents
+	df := make(map[string]int)
 	kv := make(map[string]string)
-	for k, v := range(kvi) {
-		kv[k] = strconv.Itoa(v)
+
+	for _, line := range kva {
+		if line.Key != "" {
+			keys := strings.Split(line.Key, common.Separator)
+			word := keys[0]
+			doc := keys[1]
+			vals := strings.Split(line.Value, common.Separator)
+
+			_, ok := tf_c[word]
+			if !ok {
+				tf_c[word] = make(map[string]int)
+				tf_t[word] = make(map[string]int)
+			}
+
+			count, _ := strconv.Atoi(vals[0])
+			total, _ := strconv.Atoi(vals[1])
+			tf_c[word][doc] = tf_c[word][doc] + count
+			tf_t[word][doc] = tf_t[word][doc] + total
+			df[word]++
+		}
 	}
+
+	for word, docs := range tf_c {
+		for doc, count := range docs {
+			tf_idf := (float64(count) / float64(tf_t[word][doc])) * math.Log10(float64(documentCount)/float64(df[word]))
+			kv[word+common.Separator+doc] = fmt.Sprint(tf_idf)
+		}
+	}
+
 	return kv
-	// //[word][doc] -> count
-	// tf_c := make(map[string]map[string]int)
-	// //[word][doc] -> total
-	// tf_t := make(map[string]map[string]int)
-	// // word -> # of documents
-	// df := make(map[string]int)
-	// kv := make(map[string]string)
-
-	// for _, line := range kva {
-	// 	if line.Key != "" {
-	// 		keys := strings.Split(line.Key, common.Separator)
-	// 		word := keys[0]
-	// 		doc := keys[1]
-	// 		vals := strings.Split(line.Value, common.Separator)
-
-	// 		_, ok := tf_c[word]
-	// 		if !ok {
-	// 			tf_c[word] = make(map[string]int)
-	// 			tf_t[word] = make(map[string]int)
-	// 		}
-
-	// 		count, _ := strconv.Atoi(vals[0])
-	// 		total, _ := strconv.Atoi(vals[1])
-	// 		tf_c[word][doc] = tf_c[word][doc] + count
-	// 		tf_t[word][doc] = tf_t[word][doc] + total
-	// 		df[word]++
-	// 	}
-	// }
-
-	// for word, docs := range tf_c {
-	// 	for doc, count := range docs {
-	// 		tf_idf := (float64(count) / float64(tf_t[word][doc])) * math.Log10(4/float64(df[word]))
-	// 		kv[word+common.Separator+doc] = fmt.Sprint(tf_idf)
-	// 	}
-	// }
-
-	// return kv
 }

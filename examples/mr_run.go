@@ -84,8 +84,8 @@ func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	fmt.Println("Spawning ephemeral ipfs node")
-	node, err := spawnEphemeral(ctx)
+	fmt.Println("Spawning default ipfs node")
+	node, err := spawnDefault(ctx)
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
