@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"io"
 	"bufio"
 	"os/signal"
 	"path/filepath"
@@ -36,19 +37,39 @@ import (
 	"github.com/ipfs/go-ipfs/plugin/loader" // This package is needed so that all the preloaded plugins are loaded automatically
 )
 
+// Ref: https://devmarkpro.com/working-big-files-golang
+func read(r *bufio.Reader) ([]byte, error) {
+	var (
+		isPrefix = true
+		err      error
+		line, ln []byte
+	)
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
+	}
+	return ln, err
+}
+
 func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
 	file, err := os.Open(inputFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
-	sc := bufio.NewScanner(file)
 	var fileCids []string
 	lines := 0
 	var tmpFile *os.File
 	i := 0
-	// Read through 'tokens' until an EOF is encountered.
-	for sc.Scan() {
+	reader := bufio.NewReader(file)
+	for {
+		line, err := read(reader)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Fatalf("a real error happened here: %v\n", err)
+		}
 		lines += 1
 		if (i == N) {
 			i = 0;
@@ -62,7 +83,7 @@ func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
 		if (i == 0) {
 			tmpFile, _ = ioutil.TempFile(os.TempDir(), "prefix-")
 		}
-		txt := sc.Text() + "\n"
+		txt := string(line) + "\n"
 		if _, err = tmpFile.Write([]byte(txt)); err != nil {
 			log.Fatal("Failed to write to temporary file", err)
 		}
@@ -75,9 +96,6 @@ func shard(node *core.IpfsNode, inputFile string, N int) ([]string, int) {
 	// add file to ipfs
 	os.Remove(tmpFile.Name())
 
-	if err := sc.Err(); err != nil {
-		log.Fatal(err)
-	}
 	return fileCids, lines
 }
 
