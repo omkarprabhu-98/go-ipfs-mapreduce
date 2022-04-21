@@ -329,7 +329,7 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 		}
 		log.Println("Peer", peer.ID, "mapped to reducer no", reduceIndex)
 		master.ReduceAllocation[reduceIndex] = peerId
-		peerChan <- peerId
+		go func() { peerChan <- peerId }()
 		return master.processReduceOutput(ctx, reduceOutput)
 	}
 	return errors.New("unable to perform reduce")
