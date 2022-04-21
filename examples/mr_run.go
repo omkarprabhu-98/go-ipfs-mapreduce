@@ -149,7 +149,8 @@ func main() {
 	} else {
 		// cid, _ := common.AddFile(ctx, node, os.Args[1])
 		// fmt.Println("Input file added", cid)
-		fileCids, lines := shard(node, os.Args[1], 4)
+		N, _ := strconv.Atoi(os.Args[3])
+		fileCids, lines := shard(node, os.Args[1], N)
 		// print to file
 		f, _ := os.OpenFile(os.Args[2], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		for ind, i := range(fileCids) {
