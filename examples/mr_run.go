@@ -111,7 +111,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to register map reduce protocol: %s", err))
 	}
-	if len(os.Args) != 3 {
+	if len(os.Args) != 4 {
 		n, _ := strconv.Atoi(os.Args[1])
 		fmt.Println(n)
 		// get from file
