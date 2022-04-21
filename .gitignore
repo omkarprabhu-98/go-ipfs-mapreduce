@@ -19,3 +19,6 @@
 
 examples/blogtext_preprocessed.csv
 .idea
+
+examples/datasets
+examples/runs
