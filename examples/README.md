@@ -1,15 +1,23 @@
 # Examples directory
 
-## 1. Running mr_run.go
+## Running TF-IDF
 
-Normal Peer that first uploads the data file to IPFS
-
+1. On the peer nodes - which have shards
 ```
-go run mr_run.go <data-file-path>
+go run mr_run.go <input_file_to_be_sharded> <shard_cids_output_file> <no_of_lines_per_shard>
+```
+Eg. 
+```
+go run mr_run.go data.csv /sharedDir/o.t 1000
 ```
 
-Run MR and observe status
-
+2. On the node which acts as the master
 ```
-go run mr_run.go <map-func-plugin-path> <reduce-func-plugin-path> <no-of-reducers> <data-file-cid>
+go run mr_run.go <no_of_reducers> <input_file_cid> <output_file> <shard_cids_input_file> <no_of_docs_in_dataset>
+```
+Where `<input_file_cid> ` is optional with `<shard_cids_input_file>`
+
+Eg. 
+```
+go run mr_run.go 1 dummy output /sharedDir/o.t 1000000
 ```
