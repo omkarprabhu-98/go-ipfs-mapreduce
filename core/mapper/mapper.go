@@ -19,7 +19,6 @@ type MapService struct {
 	Node *core.IpfsNode 
 }
 
-// PREV--> func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, empty *common.Empty) error {
 func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutput *common.MapOutput) error {
 	log.Println("In Map")
 	mapf, err := ms.loadMapFunc(ctx, mapInput.FuncFileCid)
@@ -27,39 +26,15 @@ func (ms *MapService) Map(ctx context.Context, mapInput common.MapInput, mapOutp
 		return err
 	}
 	log.Println("Extracted map func from file")
-	// PREV--> go func () {
-	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data 
-	// is lost and retries
-	// PREV--> ctx := context.Background()
 	kvList, _ := ms.doMap(ctx, mapf, mapInput.DataFileCid)
 	log.Println("Map output ready")
 	kvFileCids, err := ms.shuffleAndSave(ctx, kvList, mapInput.NoOfReducers, mapInput.DataFileCid)
 	if err != nil {
 		log.Fatalln("Unable to shuffle and save", err)
 	}
-	// PREV-->
-	// log.Println("Map output Cids ready")
-	// peer, err := common.GetPeerFromId(mapInput.MasterPeerId)
-	// if err != nil {
-	// 	log.Fatalln("Unable to get master peer")
-	// 	return err
-	// }
-	// if err := ms.Node.PeerHost.Connect(ctx, peer); err != nil {
-	// 	log.Fatalln("Unable to connect to master", err)
-	// 	return err
-	// }
-	// log.Println("Connected to master")
-	// rpcClient := gorpc.NewClient(ms.Node.PeerHost, common.ProtocolID)
-	// if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterMapOutputFuncName,
-	// 	common.MapOutput{DataFileCid: mapInput.DataFileCid, KvFileCids: kvFileCids,},
-	// 	&common.Empty{}); err != nil {
-	// 	log.Fatalln("Err calling the master for map output", err)
-	// PREV--> }
 	log.Println("Returned map output to master for ", mapInput.DataFileCid)
 	mapOutput.DataFileCid = mapInput.DataFileCid
 	mapOutput.KvFileCids = kvFileCids
-	// PREV--> } ()
 	return nil
 }
 

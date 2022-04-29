@@ -18,7 +18,6 @@ type ReduceService struct {
 	Node *core.IpfsNode
 }
 
-// PREV--> func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, empty *common.Empty) error {
 func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceInput, reduceOutput *common.ReduceOutput) error {
 	log.Println("In Reduce")
 	reducef, err := rs.loadReduceFunc(ctx, reduceInput.FuncFileCid)
@@ -26,29 +25,13 @@ func (rs *ReduceService) Reduce(ctx context.Context, reduceInput common.ReduceIn
 		return err
 	}
 	log.Println("Extracted reduce func from file")
-	// PREV --> 
-	// go func () {
-	// errors ignored as keeping this stateless
-	// if master does not get a response after a duration it assumes the node/data 
-	// is lost and retries
-	// ctx := context.Background()
+
 	outputFileCid, _ := rs.doReduce(ctx, reducef, reduceInput.KvFileCids, reduceInput.MasterPeerId, reduceInput.ReducerNo)
 	log.Println("Reduce output ready")
-	// PREV-->
-	// peer, err := common.GetPeerFromId(reduceInput.MasterPeerId)
-	// if err != nil {
-	// 	log.Fatalln("Unable to get master peer")
-	// }
-	// rpcClient := gorpc.NewClient(rs.Node.PeerHost, common.ProtocolID)
-	// if err := rpcClient.Call(peer.ID, common.MasterServiceName, common.MasterReduceOutputFuncName,
-	// 	common.ReduceOutput{ReducerNo: reduceInput.ReducerNo, OutputFileCid: outputFileCid,},
-	// 	&common.Empty{}); err != nil {
-	// 	log.Fatalln("Err calling the master for reduce output", err)
-	// }
+
 	reduceOutput.ReducerNo = reduceInput.ReducerNo
 	reduceOutput.OutputFileCid = outputFileCid
 	log.Println("Pinged master with reduce output")
-	// PREV-->  } ()
 	return nil
 }
 

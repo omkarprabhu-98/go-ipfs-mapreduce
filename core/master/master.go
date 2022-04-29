@@ -125,7 +125,7 @@ func (master *Master) RunMapReduce(ctx context.Context) {
 
 	log.Println("MAP COMPLETE")
 	// Starting Reduce
-	// master.startReduce()
+
 	reduceTask := make(chan ReduceTask)
 	done := make(chan bool, 1)
 	peerChan := make(chan string, 100)
@@ -164,22 +164,26 @@ func (master *Master) fillPeerChan(peerChan chan string, done chan bool) {
 func (master *Master) MapHandler(ctx context.Context, mapTask chan MapTask, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range mapTask {
-		if master.processBlock(ctx, task.Cid) != nil {
+		for err := master.processBlock(ctx, task.Cid); err != nil; {
 			if task.Retries < common.MaxRetries {
+				log.Println("Failed to process block", task.Cid, "Retry: ", task.Retries)
 				task.Retries += 1
-				mapTask <- task
+			} else {
+				break;
 			}
 		}
 	}
 }
 
-func (master *Master) ReduceHandler (ctx context.Context, reduceTask chan ReduceTask, peerChan chan string, wg *sync.WaitGroup) {
+func (master *Master) ReduceHandler(ctx context.Context, reduceTask chan ReduceTask, peerChan chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range reduceTask {
-		if master.processReduce(ctx, peerChan, task.Index) != nil {
+		for err := master.processReduce(ctx, peerChan, task.Index); err != nil; {
 			if task.Retries < common.MaxRetries {
+				log.Println("Failed to process block", task.Index, "Retry: ", task.Retries)
 				task.Retries += 1
-				reduceTask <- task
+			} else {
+				break;
 			}
 		}
 	}
@@ -239,14 +243,9 @@ func (master *Master) processBlock(ctx context.Context, blockCid cid.Cid) error 
 		return master.processMapOutput(ctx, mapOutput)
 	}
 	return errors.New("unable to find a provider")
-	// PREV-->
-	// if _, ok := master.MapAllocation[blockCidString]; !ok {
-	// 	log.Fatalln("Unable to find map allocation for", blockCidString)
-	// }
 }
 
 // exported via gorpc
-// PREV--> func (master *Master) ProcessMapOutput(ctx context.Context, mapOutput common.MapOutput, empty *common.Empty) error {
 func (master *Master) processMapOutput(ctx context.Context, mapOutput common.MapOutput) error {
 	master.mu.Lock()
 	defer master.mu.Unlock()
@@ -257,55 +256,8 @@ func (master *Master) processMapOutput(ctx context.Context, mapOutput common.Map
 	}
 	master.MapStatus.Complete += 1
 	log.Println("Map output obtained for", mapOutput.DataFileCid)
-
-	// PREV --> 
-	// if master.MapStatus.Complete == master.MapStatus.Total {
-	// 	go master.startReduce() 
-	// }
 	return nil
 }
-
-// PREV-->
-// func (master *Master) startReduce() {
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	defer cancel()
-// 	log.Println("All Map outputs obtained, Starting Reduce...")
-// 	// TODO find a better way
-// 	master.mu.Lock()
-// 	defer master.mu.Unlock()
-// 	for i := 0; i < master.NoOfReducers; i++ {
-// 		for  _, peerIdList := range master.BlockProviders {
-// 			if _, ok := master.ReduceAllocation[i]; ok {
-// 				break;
-// 			}
-// 			for _, peerId := range peerIdList {
-// 				peer, err := common.GetPeerFromId(peerId)
-// 				if err != nil {
-// 					log.Println("Unable to create peer f", err)
-// 					continue
-// 				}
-// 				if err := master.Node.PeerHost.Connect(ctx, peer); err != nil {
-// 					log.Println("Unable to connect to peer for reduce", err)
-// 					continue
-// 				}
-// 				if err := master.RpcClient.Call(peer.ID, common.ReduceServiceName, common.ReduceFuncName,
-// 					common.ReduceInput{FuncFileCid: master.ReduceFuncFileCid, KvFileCids: master.ReduceFileMap[i],
-// 						ReducerNo: i, MasterPeerId: master.Node.Identity.String(),}, 
-// 					&common.Empty{}); err != nil {
-// 					log.Println("Unable to call peer for reduce", err)
-// 					continue
-// 				}
-// 				log.Println("Peer", peer.ID, "mapped to reducer no", i)
-// 				master.ReduceAllocation[i] = peerId
-// 				break;
-// 			}
-// 		}
-// 	}
-// 	// check 
-// 	if len(master.ReduceAllocation) != master.NoOfReducers {
-// 		log.Fatalln("Unable to find the required reducers")
-// 	}
-// }
 
 func (master *Master) processReduce(ctx context.Context, peerChan chan string, reduceIndex int) error {
 	for peerId := range peerChan {
@@ -329,24 +281,20 @@ func (master *Master) processReduce(ctx context.Context, peerChan chan string, r
 		}
 		log.Println("Peer", peer.ID, "mapped to reducer no", reduceIndex)
 		master.ReduceAllocation[reduceIndex] = peerId
-		peerChan <- peerId
+		// in a separate routine as it could block
+		go func() { peerChan <- peerId }()
 		return master.processReduceOutput(ctx, reduceOutput)
 	}
 	return errors.New("unable to perform reduce")
 }
 
 // exported via gorpc service
-// func (master *Master) ProcessReduceOutput(ctx context.Context, reduceOutput common.ReduceOutput, empty *common.Empty) error {
 func (master *Master) processReduceOutput(ctx context.Context, reduceOutput common.ReduceOutput) error {
 	master.mu.Lock()
 	defer master.mu.Unlock()
 	master.ReduceOutput[reduceOutput.ReducerNo] = reduceOutput.OutputFileCid
 	master.ReduceStatus.Complete += 1
 	log.Println("Reduce output obtained for", reduceOutput.ReducerNo)
-	// PREV-->
-	// if master.ReduceStatus.Complete == master.ReduceStatus.Total {
-	// 	go master.combineOutput() 
-	// }
 	return nil
 }
 
