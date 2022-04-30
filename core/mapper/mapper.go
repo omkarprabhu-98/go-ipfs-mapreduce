@@ -3,9 +3,10 @@ package mapper
 import (
 	"bufio"
 	"context"
-	"encoding/csv"
-	"io"
-	"strconv"
+	// "encoding/csv"
+	// "io"
+	// "strconv"
+	"unicode"
 
 	// "encoding/csv"
 	"encoding/json"
@@ -136,53 +137,53 @@ func (ms *MapService) shuffleAndSave(ctx context.Context, kvList []common.KeyVal
 
 func mapf(filename string, contents string) []common.KeyValue {
 
-	//// function to detect word separators.
-	//ff := func(r rune) bool { return !unicode.IsLetter(r) }
-	//
-	//// split contents into an array of words.
-	//words := strings.FieldsFunc(contents, ff)
-	//
-	//kva := []common.KeyValue{}
-	//for _, w := range words {
-	//	kv := common.KeyValue{w, "1"}
-	//	kva = append(kva, kv)
-	//}
-	//return kva
-
-	// [word][doc] -> count
-	data := make(map[string]map[string]int)
-	r := csv.NewReader(strings.NewReader(contents))
-	// [doc] -> # of words
-	wc := make(map[string]int)
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		doc := record[0]
-		words := strings.Fields(record[1])
-		wc[doc] = len(words)
-		for _, word := range strings.Fields(record[1]) {
-			_, ok := data[word]
-			if !ok {
-				data[word] = make(map[string]int)
-			}
-			data[word][doc]++
-		}
+	// function to detect word separators.
+	ff := func(r rune) bool { return !unicode.IsLetter(r) }
+	
+	// split contents into an array of words.
+	words := strings.FieldsFunc(contents, ff)
+	
+	kva := []common.KeyValue{}
+	for _, w := range words {
+		kv := common.KeyValue{w, "1"}
+		kva = append(kva, kv)
 	}
-
-	var kva []common.KeyValue
-	for word, docCount := range data {
-		for doc, val := range docCount {
-			kv := common.KeyValue{Key: word + common.Separator + doc,
-				Value: strconv.Itoa(val) + common.Separator + strconv.Itoa(wc[doc])}
-			kva = append(kva, kv)
-		}
-	}
-
-	fmt.Println("Finished mapping")
 	return kva
+
+	// // [word][doc] -> count
+	// data := make(map[string]map[string]int)
+	// r := csv.NewReader(strings.NewReader(contents))
+	// // [doc] -> # of words
+	// wc := make(map[string]int)
+	// for {
+	// 	record, err := r.Read()
+	// 	if err == io.EOF {
+	// 		break
+	// 	}
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	doc := record[0]
+	// 	words := strings.Fields(record[1])
+	// 	wc[doc] = len(words)
+	// 	for _, word := range strings.Fields(record[1]) {
+	// 		_, ok := data[word]
+	// 		if !ok {
+	// 			data[word] = make(map[string]int)
+	// 		}
+	// 		data[word][doc]++
+	// 	}
+	// }
+
+	// var kva []common.KeyValue
+	// for word, docCount := range data {
+	// 	for doc, val := range docCount {
+	// 		kv := common.KeyValue{Key: word + common.Separator + doc,
+	// 			Value: strconv.Itoa(val) + common.Separator + strconv.Itoa(wc[doc])}
+	// 		kva = append(kva, kv)
+	// 	}
+	// }
+
+	// fmt.Println("Finished mapping")
+	// return kva
 }
