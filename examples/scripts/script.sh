@@ -15,6 +15,8 @@ ipfs version
 sudo mkdir .ipfs
 sudo chmod 777 .ipfs
 setenv IPFS_PATH /data/.ipfs
+export IPFS_PATH=/data/.ipfs
+
 ipfs init
 
 echo "/key/swarm/psk/1.0.0/\n/base16/\n`tr -dc 'a-f0-9' < /dev/urandom | head -c64`" > /data/.ipfs/swarm.key
@@ -41,7 +43,7 @@ kill -9 $(pidof ipfs)
 
 sudo chown cs6675g7 -R go-ipfs-mapreduce/
 
-go run mr_run.go /users/cs6675g7/blog3.csv /users/cs6675g7/o.t 3000
+go run mr_run.go /users/cs6675g7/blog4.csv /users/cs6675g7/o.t 3000
 
 
-go run mr_run.go 2 dummy output /users/cs6675g7/o.t 200000
+go run mr_run.go 3 dummy output /users/cs6675g7/o.t 1
